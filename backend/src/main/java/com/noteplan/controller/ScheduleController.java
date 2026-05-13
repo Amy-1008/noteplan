@@ -2,16 +2,15 @@ package com.noteplan.controller;
 
 import com.noteplan.entity.Schedule;
 import com.noteplan.service.ScheduleService;
+import com.noteplan.vo.Result;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/schedule")
-@CrossOrigin(origins = "*")  // 允许前端跨域访问
+@CrossOrigin(origins = "*")
 public class ScheduleController {
 
     @Autowired
@@ -19,21 +18,15 @@ public class ScheduleController {
 
     // GET /api/schedule/list
     @GetMapping("/list")
-    public Map<String, Object> list() {
+    public Result<List<Schedule>> list() {
         List<Schedule> list = scheduleService.getAllSchedules();
-        Map<String, Object> result = new HashMap<>();
-        result.put("code", 200);
-        result.put("message", "success");
-        result.put("data", list);
-        return result;
+        return Result.success(list);
     }
 
+    // PUT /api/schedule/complete
     @PutMapping("/complete")
-    public Map<String, Object> updateComplete(@RequestParam Long id, @RequestParam Integer completed) {
+    public Result<Void> updateComplete(@RequestParam Long id, @RequestParam Integer completed) {
         scheduleService.updateComplete(id, completed);
-        Map<String, Object> result = new HashMap<>();
-        result.put("code", 200);
-        result.put("message", "success");
-        return result;
+        return Result.success();
     }
 }
