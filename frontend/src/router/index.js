@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import ScheduleView from '@/views/ScheduleView.vue'  // 导入你写的日程页面
 
 const routes = [
   {
@@ -15,8 +16,7 @@ const routes = [
   {
     path: '/schedules',
     name: 'schedules',
-    component: () => import('@/views/PlaceholderView.vue'),
-    props: { title: '日程管理', desc: '日程增删改查、完成状态、关联笔记（待实现）' },
+    component: ScheduleView,
   },
   {
     path: '/calendar',
