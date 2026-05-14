@@ -47,10 +47,9 @@
             >
               <el-checkbox v-model="schedule.completed" @change="toggleComplete(schedule)" />
               <span class="schedule-title">{{ schedule.title }}</span>
-              <span class="schedule-date">{{ formatDate(schedule.startTime) }}</span>
+              <span class="schedule-date">{{ formatScheduleTime(schedule) }}</span>
             </div>
           </div>
-          <!-- 分页栏：每页条数选择 + 页码切换 -->
           <div class="group-pagination">
             <div class="pagination-size">
               <span>每页</span>
@@ -91,7 +90,7 @@
             >
               <el-checkbox v-model="schedule.completed" @change="toggleComplete(schedule)" />
               <span class="schedule-title">{{ schedule.title }}</span>
-              <span class="schedule-date">{{ formatDate(schedule.startTime) }}</span>
+              <span class="schedule-date">{{ formatScheduleTime(schedule) }}</span>
             </div>
           </div>
           <div class="group-pagination">
@@ -134,7 +133,7 @@
             >
               <el-checkbox v-model="schedule.completed" @change="toggleComplete(schedule)" />
               <span class="schedule-title">{{ schedule.title }}</span>
-              <span class="schedule-date">{{ formatDate(schedule.startTime) }}</span>
+              <span class="schedule-date">{{ formatScheduleTime(schedule) }}</span>
             </div>
           </div>
           <div class="group-pagination">
@@ -177,7 +176,7 @@
             >
               <el-checkbox v-model="schedule.completed" disabled />
               <span class="schedule-title">{{ schedule.title }}</span>
-              <span class="schedule-date">{{ formatDate(schedule.startTime) }}</span>
+              <span class="schedule-date">{{ formatScheduleTime(schedule) }}</span>
             </div>
           </div>
           <div class="group-pagination">
@@ -210,6 +209,117 @@
         <el-empty v-if="noData" description="暂无日程" />
       </div>
     </div>
+
+    <!-- 添加日程弹窗 -->
+    <el-dialog
+        v-model="dialogVisible"
+        title="添加日程"
+        width="550px"
+        :close-on-click-modal="false"
+    >
+      <el-form :model="formData" :rules="formRules" ref="formRef" label-width="80px">
+        <el-form-item label="标题" prop="title">
+          <el-input v-model="formData.title" placeholder="请输入日程标题" />
+        </el-form-item>
+
+        <!-- 时间类型选择：时间点 / 时间段 -->
+        <el-form-item label="时间类型" prop="timeType">
+          <el-radio-group v-model="formData.timeType">
+            <el-radio label="point">时间点</el-radio>
+            <el-radio label="period">时间段</el-radio>
+          </el-radio-group>
+        </el-form-item>
+
+        <!-- 时间点模式：只选结束时间 -->
+        <el-form-item v-if="formData.timeType === 'point'" label="时间" prop="endTime">
+          <el-date-picker
+              v-model="formData.endTime"
+              type="datetime"
+              placeholder="选择日期时间"
+              format="YYYY-MM-DD HH:mm"
+              value-format="YYYY-MM-DD HH:mm:ss"
+              style="width: 100%"
+          />
+        </el-form-item>
+
+        <!-- 时间段模式：选开始时间和结束时间 -->
+        <template v-else>
+          <el-form-item label="开始时间" prop="startTime">
+            <el-date-picker
+                v-model="formData.startTime"
+                type="datetime"
+                placeholder="选择开始时间"
+                format="YYYY-MM-DD HH:mm"
+                value-format="YYYY-MM-DD HH:mm:ss"
+                style="width: 100%"
+            />
+          </el-form-item>
+          <el-form-item label="结束时间" prop="endTime">
+            <el-date-picker
+                v-model="formData.endTime"
+                type="datetime"
+                placeholder="选择结束时间"
+                format="YYYY-MM-DD HH:mm"
+                value-format="YYYY-MM-DD HH:mm:ss"
+                style="width: 100%"
+            />
+          </el-form-item>
+        </template>
+
+        <el-form-item label="重复频率">
+          <el-select v-model="formData.repeatRule" placeholder="不重复" style="width: 100%">
+            <el-option label="无" value="none" />
+            <el-option label="每天" value="daily" />
+            <el-option label="每周" value="weekly" />
+            <el-option label="每月" value="monthly" />
+            <el-option label="每年" value="yearly" />
+            <el-option label="工作日" value="workday" />
+            <el-option label="节假日" value="holiday" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="备注">
+          <el-input
+              v-model="formData.remark"
+              type="textarea"
+              :rows="3"
+              placeholder="请输入备注"
+          />
+        </el-form-item>
+
+        <el-form-item label="标签">
+          <el-select v-model="formData.tagIds" multiple placeholder="选择标签" style="width: 100%">
+            <el-option
+                v-for="tag in tagList"
+                :key="tag.id"
+                :label="tag.name"
+                :value="tag.id"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="关联笔记">
+          <el-select
+              v-model="formData.noteIds"
+              multiple
+              placeholder="选择关联笔记"
+              style="width: 100%"
+          >
+            <el-option
+                v-for="note in noteList"
+                :key="note.id"
+                :label="note.title"
+                :value="note.id"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitSchedule">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -222,9 +332,42 @@ import axios from 'axios'
 // ---------- 数据 ----------
 const scheduleList = ref([])
 const tagList = ref([])
+const noteList = ref([])
 const currentTag = ref('all')
+const dialogVisible = ref(false)
+const formRef = ref(null)
 
-// 每个分组独立的当前页
+// 表单数据
+const formData = ref({
+  title: '',
+  timeType: 'point',           // 'point' 或 'period'
+  startTime: '',               // 时间段时用
+  endTime: '',                 // 时间点/时间段都用
+  repeatRule: 'none',
+  remark: '',
+  tagIds: [],
+  noteIds: []
+})
+
+// 表单校验规则
+const formRules = {
+  title: [{ required: true, message: '请输入日程标题', trigger: 'blur' }],
+  endTime: [{ required: true, message: '请选择时间', trigger: 'change' }],
+  startTime: [{
+    required: true,
+    message: '请选择开始时间',
+    trigger: 'change',
+    validator: (rule, value, callback) => {
+      if (formData.value.timeType === 'period' && !value) {
+        callback(new Error('请选择开始时间'))
+      } else {
+        callback()
+      }
+    }
+  }]
+}
+
+// 分页
 const currentPageMap = ref({
   expired: 1,
   nextWeek: 1,
@@ -232,7 +375,6 @@ const currentPageMap = ref({
   completed: 1
 })
 
-// 每个分组独立的每页条数
 const pageSizeMap = ref({
   expired: 5,
   nextWeek: 5,
@@ -241,18 +383,36 @@ const pageSizeMap = ref({
 })
 
 // ---------- 辅助函数 ----------
-const isExpired = (schedule) => {
-  if (schedule.completed) return false
-  return new Date(schedule.startTime) < new Date(new Date().setHours(0, 0, 0, 0))
+// 格式化日程时间显示
+const formatScheduleTime = (schedule) => {
+  if (!schedule.endTime) return ''
+
+  const formatTime = (dateStr) => {
+    const date = new Date(dateStr)
+    return `${date.getMonth() + 1}-${date.getDate()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`
+  }
+
+  // 有时间点：startTime 为 null
+  if (!schedule.startTime) {
+    return formatTime(schedule.endTime)
+  }
+
+  // 时间段：显示 开始 ~ 结束
+  return `${formatTime(schedule.startTime)} ~ ${formatTime(schedule.endTime)}`
 }
 
+// 判断是否过期
+const isExpired = (schedule) => {
+  if (schedule.completed) return false
+  return new Date(schedule.endTime) < new Date()
+}
+
+// 判断是否在接下来7天内
 const isNextWeek = (schedule) => {
   if (schedule.completed) return false
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const targetDate = new Date(schedule.startTime)
-  targetDate.setHours(0, 0, 0, 0)
-  const diffDays = Math.ceil((targetDate - today) / (1000 * 60 * 60 * 24))
+  const now = new Date()
+  const endTime = new Date(schedule.endTime)
+  const diffDays = Math.ceil((endTime - now) / (1000 * 60 * 60 * 24))
   return diffDays >= 0 && diffDays <= 7
 }
 
@@ -285,6 +445,7 @@ const toggleComplete = async (schedule) => {
       params: { id: schedule.id, completed: schedule.completed ? 1 : 0 }
     })
     ElMessage.success(schedule.completed ? '已完成' : '已取消完成')
+    fetchScheduleList()
   } catch (error) {
     schedule.completed = !schedule.completed
     ElMessage.error('操作失败')
@@ -297,16 +458,66 @@ const handlePageChange = (group, page) => {
 
 const handlePageSizeChange = (group, size) => {
   pageSizeMap.value[group] = size
-  currentPageMap.value[group] = 1  // 改变每页条数时，回到第一页
+  currentPageMap.value[group] = 1
 }
 
 const openAddDialog = () => {
-  ElMessage.info('添加日程弹窗待实现')
+  formData.value = {
+    title: '',
+    timeType: 'point',
+    startTime: '',
+    endTime: '',
+    repeatRule: 'none',
+    remark: '',
+    tagIds: [],
+    noteIds: []
+  }
+  dialogVisible.value = true
 }
 
-const formatDate = (dateStr) => {
-  const date = new Date(dateStr)
-  return `${date.getMonth() + 1}-${date.getDate()}`
+const submitSchedule = async () => {
+  if (!formRef.value) return
+
+  await formRef.value.validate(async (valid) => {
+    if (!valid) {
+      ElMessage.warning('请填写必填项')
+      return
+    }
+
+    try {
+      // 构建提交数据
+      const submitData = {
+        title: formData.value.title,
+        repeatRule: formData.value.repeatRule,
+        remark: formData.value.remark,
+        tagIds: formData.value.tagIds,
+        noteIds: formData.value.noteIds
+      }
+
+      if (formData.value.timeType === 'point') {
+        // 时间点：startTime = null, endTime = 填的值
+        submitData.startTime = null
+        submitData.endTime = formData.value.endTime
+      } else {
+        // 时间段：startTime 和 endTime 都填
+        submitData.startTime = formData.value.startTime
+        submitData.endTime = formData.value.endTime
+      }
+
+      const response = await axios.post('http://localhost:8080/api/schedule/add', submitData)
+
+      if (response.data.code === 200) {
+        ElMessage.success('添加成功')
+        dialogVisible.value = false
+        fetchScheduleList()
+      } else {
+        ElMessage.error(response.data.message || '添加失败')
+      }
+    } catch (error) {
+      console.error('添加日程失败', error)
+      ElMessage.error('添加失败')
+    }
+  })
 }
 
 // ---------- API ----------
@@ -321,13 +532,23 @@ const fetchTagList = async () => {
   }
 }
 
+const fetchNoteList = async () => {
+  try {
+    const response = await axios.get('http://localhost:8080/api/note/list')
+    if (response.data.code === 200) {
+      noteList.value = response.data.data
+    }
+  } catch (error) {
+    console.error('获取笔记失败', error)
+  }
+}
+
 const fetchScheduleList = async () => {
   try {
     const params = currentTag.value !== 'all' ? { tagId: currentTag.value } : {}
     const response = await axios.get('http://localhost:8080/api/schedule/list', { params })
     if (response.data.code === 200) {
       scheduleList.value = response.data.data
-      // 重置分页
       currentPageMap.value = {
         expired: 1,
         nextWeek: 1,
@@ -344,6 +565,7 @@ watch(currentTag, () => fetchScheduleList())
 
 onMounted(() => {
   fetchTagList()
+  fetchNoteList()
   fetchScheduleList()
 })
 </script>
@@ -352,7 +574,11 @@ onMounted(() => {
 .schedule-container {
   display: flex;
   height: 100vh;
+  width: 100%;
   background-color: #f5f7fa;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
 }
 
 /* 左侧标签栏 */
@@ -362,6 +588,7 @@ onMounted(() => {
   border-right: 1px solid #e4e7ed;
   padding: 20px 0;
   overflow-y: auto;
+  flex-shrink: 0;
 }
 
 .sidebar-header {

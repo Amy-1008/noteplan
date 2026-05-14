@@ -1,7 +1,6 @@
 package com.noteplan.entity;
 
 import lombok.Data;
-
 import java.time.LocalDateTime;
 
 @Data
@@ -9,6 +8,8 @@ public class Schedule {
     private Long id;
     private String title;
     private LocalDateTime startTime;
+    private LocalDateTime endTime;
+    private String repeatRule;
     private String remark;
     private Integer completed;
     private Integer status;

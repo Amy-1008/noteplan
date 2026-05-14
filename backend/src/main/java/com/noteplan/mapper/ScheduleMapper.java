@@ -1,20 +1,33 @@
 package com.noteplan.mapper;
 
 import com.noteplan.entity.Schedule;
-import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Select;
-import org.apache.ibatis.annotations.Update;
+import org.apache.ibatis.annotations.*;
+import java.time.LocalDateTime;
 
 import java.util.List;
 
 @Mapper
 public interface ScheduleMapper {
 
-    // 查询所有未删除的日程，按 start_time 升序（日期最小的在前）
-    @Select("SELECT * FROM schedule WHERE status = 0 ORDER BY start_time ASC")
+    // 查询所有未删除的日程
+    @Select("SELECT * FROM schedule WHERE status = 0 ORDER BY end_time ASC")
     List<Schedule> findAll();
 
+    // 根据ID查询日程
+    @Select("SELECT * FROM schedule WHERE id = #{id}")
+    Schedule findById(Long id);
+
+    // 新增日程
+    @Insert("INSERT INTO schedule (title, start_time, end_time, repeat_rule, remark, completed, status, `rank`) " +
+            "VALUES (#{title}, #{startTime}, #{endTime}, #{repeatRule}, #{remark}, #{completed}, #{status}, #{rank})")
+    @Options(useGeneratedKeys = true, keyProperty = "id")
+    int insert(Schedule schedule);
+
+    // 更新完成状态
     @Update("UPDATE schedule SET completed = #{completed} WHERE id = #{id}")
-    void updateComplete(@Param("id") Long id, @Param("completed") Integer completed);
+    int updateComplete(@Param("id") Long id, @Param("completed") Integer completed);
+
+    // 更新时间（重复日程用）
+    @Update("UPDATE schedule SET start_time = #{startTime}, end_time = #{endTime} WHERE id = #{id}")
+    int updateTime(@Param("id") Long id, @Param("startTime") LocalDateTime startTime, @Param("endTime") LocalDateTime endTime);
 }
