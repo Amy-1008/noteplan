@@ -4,6 +4,7 @@ import com.noteplan.entity.Tag;
 import com.noteplan.dto.TagDTO;
 import com.noteplan.service.TagService;
 import com.noteplan.vo.Result;
+import com.noteplan.vo.TargetInfo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -78,16 +79,11 @@ public class TagController {
         return Result.success();
     }
 
+    //根据传入的标签id及目标类型进行筛选，并返回筛选对象的id及类型
     @GetMapping("/filter")
-    public Result<List<Long>> filterByTag(@RequestParam(required = false) Long tagId,
-                                          @RequestParam(required = false) String targetType) {
-        List<Long> targetIds;
-        if (tagId == null) {
-            // 不传 tagId 时，获取所有有标签的目标ID
-            targetIds = tagService.getAllTargetIdsByType(targetType);
-        } else {
-            targetIds = tagService.getTargetIdsByTag(tagId, targetType);
-        }
-        return Result.success(targetIds);
+    public Result<List<TargetInfo>> filterByTag(@RequestParam(required = false) Long tagId,
+                                                @RequestParam(required = false) String targetType) {
+        List<TargetInfo> targets = tagService.getTargets(tagId, targetType);
+        return Result.success(targets);
     }
 }

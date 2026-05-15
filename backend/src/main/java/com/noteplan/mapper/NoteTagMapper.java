@@ -1,6 +1,7 @@
 package com.noteplan.mapper;
 
 import com.noteplan.entity.NoteTag;
+import com.noteplan.vo.TargetInfo;
 import org.apache.ibatis.annotations.*;
 
 import java.util.List;
@@ -15,7 +16,7 @@ public interface NoteTagMapper {
     int insert(NoteTag noteTag);
 
 
-    //删除目标的所有标签（绑定新标签前先调用）
+    //删除目标的所有标签（绑定新标签/删除目标前先调用）
     @Delete("DELETE FROM note_tag WHERE target_id = #{targetId} AND target_type = #{targetType}")
     int deleteByTarget(@Param("targetId") Long targetId,
                        @Param("targetType") String targetType);
@@ -40,4 +41,15 @@ public interface NoteTagMapper {
     //筛选所有关联了标签的日程or笔记的ids
     @Select("SELECT DISTINCT target_id FROM note_tag WHERE target_type = #{targetType}")
     List<Long> selectAllTargetIdsByType(@Param("targetType") String targetType);
+
+    //根据传入的tagid及目标类型目标，并返回目标的id及类型
+    @Select("<script>" +
+            "SELECT target_id as id, target_type as type FROM note_tag" +
+            "<where>" +
+            "<if test='tagId != null'> AND tag_id = #{tagId}</if>" +
+            "<if test='targetType != null and targetType != \"\"'> AND target_type = #{targetType}</if>" +
+            "</where>" +
+            "</script>")
+    List<TargetInfo> selectTargets(@Param("tagId") Long tagId,
+                                   @Param("targetType") String targetType);
 }

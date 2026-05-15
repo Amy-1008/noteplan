@@ -2,6 +2,8 @@ package com.noteplan.service;
 
 import com.noteplan.entity.Tag;
 import com.noteplan.dto.TagDTO;
+import com.noteplan.vo.TargetInfo;
+
 import java.util.List;
 
 public interface TagService {
@@ -38,4 +40,5 @@ public interface TagService {
      */
     List<Long> getTargetIdsByTag(Long tagId, String targetType);
     List<Long> getAllTargetIdsByType(String targetType);
+    List<TargetInfo> getTargets(Long tagId, String targetType);
 }

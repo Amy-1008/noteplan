@@ -6,6 +6,7 @@ import com.noteplan.dto.TagDTO;
 import com.noteplan.mapper.NoteTagMapper;
 import com.noteplan.mapper.TagMapper;
 import com.noteplan.service.TagService;
+import com.noteplan.vo.TargetInfo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -140,5 +141,10 @@ public class TagServiceImpl implements TagService {
     @Override
     public List<Long> getAllTargetIdsByType(String targetType) {
         return noteTagMapper.selectAllTargetIdsByType(targetType);
+    }
+
+    @Override
+    public List<TargetInfo> getTargets(Long tagId, String targetType) {
+        return noteTagMapper.selectTargets(tagId, targetType);
     }
 }

@@ -599,19 +599,21 @@ const fetchNoteList = async () => {
 
 const fetchScheduleList = async () => {
   try {
-    let scheduleIds = []
-
     if (currentTag.value === 'uncategorized') {
       // 未分类：获取所有日程，然后筛选出没有关联任何标签的日程
       const response = await axios.get('http://localhost:8080/api/schedule/list')
       const allSchedules = response.data.data || []
-      // 获取所有有标签的日程ID
+
+      // 获取所有有标签的日程ID（返回的是 [{id, type}] 数组）
       const allTagsResponse = await axios.get('http://localhost:8080/api/tags/filter', {
         params: { targetType: 'SCHEDULE' }
       })
-      const taggedScheduleIds = allTagsResponse.data.data || []
+      // 提取出 id 数组
+      const taggedScheduleIds = (allTagsResponse.data.data || []).map(item => item.id)
+
       // 筛选出没有标签的日程
       scheduleList.value = allSchedules.filter(s => !taggedScheduleIds.includes(s.id))
+
     } else if (currentTag.value !== 'all') {
       // 有标签筛选
       const filterResponse = await axios.get('http://localhost:8080/api/tags/filter', {
@@ -620,7 +622,9 @@ const fetchScheduleList = async () => {
           targetType: 'SCHEDULE'
         }
       })
-      scheduleIds = filterResponse.data.data || []
+      // 提取出 id 数组
+      const scheduleIds = (filterResponse.data.data || []).map(item => item.id)
+
       if (scheduleIds.length > 0) {
         const response = await axios.get('http://localhost:8080/api/schedule/list', {
           params: { ids: scheduleIds.join(',') }
