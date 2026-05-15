@@ -32,8 +32,9 @@ public class TagServiceImpl implements TagService {
         }
         Tag tag = new Tag();
         tag.setName(tagDTO.getName());
+        tag.setRank(tagDTO.getRank() != null ? tagDTO.getRank() : 0);
         tagMapper.insert(tag);
-        log.info("创建标签成功: id={}, name={}", tag.getId(), tag.getName());
+        log.info("创建标签成功: id={}, name={}, rank={}", tag.getId(), tag.getName(), tag.getRank());
         return tag;
     }
     //删除标签
@@ -66,8 +67,9 @@ public class TagServiceImpl implements TagService {
         }
 
         existTag.setName(tagDTO.getName());
+        existTag.setRank(tagDTO.getRank() != null ? tagDTO.getRank() : 0);
         tagMapper.update(existTag);
-        log.info("更新标签成功: id={}, name={}", existTag.getId(), existTag.getName());
+        log.info("更新标签成功: id={}, name={}, rank={}", existTag.getId(), existTag.getName(), existTag.getRank());
         return existTag;
     }
     //获取标签列表

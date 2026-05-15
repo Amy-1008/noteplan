@@ -8,5 +8,6 @@ import java.time.LocalDateTime;
 public class Tag {
     private Long id;
     private String name;
+    private Integer rank;  //0普通 1重要
     private LocalDateTime createTime;
 }

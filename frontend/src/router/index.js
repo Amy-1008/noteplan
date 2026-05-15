@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import ScheduleView from '@/views/ScheduleView.vue'  // 导入你写的日程页面
+import ScheduleView from '@/views/ScheduleView.vue'
+import TagView from "@/views/TagView.vue";  // 导入你写的日程页面
 
 const routes = [
   {
@@ -27,8 +28,7 @@ const routes = [
   {
     path: '/tags',
     name: 'tags',
-    component: () => import('@/views/PlaceholderView.vue'),
-    props: { title: '标签管理', desc: '标签库与筛选（待实现）' },
+    component: TagView,
   },
   {
     path: '/search',
