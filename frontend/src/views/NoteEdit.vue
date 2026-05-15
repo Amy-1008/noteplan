@@ -41,7 +41,7 @@
             <div v-for="ver in versionList" :key="ver.versionNo" class="version-item">
               <span>版本 {{ ver.versionNo }} - {{ formatDate(ver.saveTime) }}</span>
               <el-button text type="primary" size="small" @click="previewVersion(ver)">预览</el-button>
-              <el-button text type="warning" size="small" @click="recoverVersion(ver.versionNo)">恢复此版本</el-button>
+              <el-button text type="warning" size="small" @click="handleRecoverVersion(ver.versionNo)">恢复此版本</el-button>
             </div>
             <el-empty v-if="versionList.length === 0" description="暂无历史版本" />
           </div>
@@ -182,8 +182,8 @@ const previewVersion = (ver) => {
   previewVisible.value = true
 }
 
-// 恢复版本
-const recoverVersion = async (versionNo) => {
+// 恢复版本（调用 API）
+const handleRecoverVersion = async (versionNo) => {
   try {
     const res = await recoverVersion(noteId.value, versionNo)
     if (res.data.code === 200) {
