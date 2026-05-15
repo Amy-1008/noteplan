@@ -33,7 +33,7 @@ const routes = [
   {
     path: '/calendar',
     name: 'calendar',
-    component: () => import('@/views/PlaceholderView.vue'),
+    component: () => import('@/views/CalendarView.vue'),
     props: { title: '日历视图', desc: '月视图与按日列表（待实现）' },
   },
   {
