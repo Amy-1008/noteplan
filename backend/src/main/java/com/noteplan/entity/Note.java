@@ -1,17 +1,34 @@
 package com.noteplan.entity;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
 
-@Data
 public class Note {
     private Long id;
     private String title;
     private String content;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
-    /** 0 正常 1 已删除 */
     private Integer status;
     private Integer rank;
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
+
+    public String getContent() { return content; }
+    public void setContent(String content) { this.content = content; }
+
+    public LocalDateTime getCreateTime() { return createTime; }
+    public void setCreateTime(LocalDateTime createTime) { this.createTime = createTime; }
+
+    public LocalDateTime getUpdateTime() { return updateTime; }
+    public void setUpdateTime(LocalDateTime updateTime) { this.updateTime = updateTime; }
+
+    public Integer getStatus() { return status; }
+    public void setStatus(Integer status) { this.status = status; }
+
+    public Integer getRank() { return rank; }
+    public void setRank(Integer rank) { this.rank = rank; }
 }

@@ -5,7 +5,6 @@ import com.noteplan.entity.NoteVersion;
 import org.apache.ibatis.annotations.*;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Mapper
