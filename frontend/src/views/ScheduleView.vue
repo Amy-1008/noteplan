@@ -601,34 +601,37 @@ const fetchScheduleList = async () => {
   try {
     let scheduleIds = []
 
-    if (currentTag.value !== 'all') {
-      // 调用筛选接口，只获取日程类型的目标ID
+    if (currentTag.value === 'uncategorized') {
+      // 未分类：获取所有日程，然后筛选出没有关联任何标签的日程
+      const response = await axios.get('http://localhost:8080/api/schedule/list')
+      const allSchedules = response.data.data || []
+      // 获取所有有标签的日程ID
+      const allTagsResponse = await axios.get('http://localhost:8080/api/tags/filter', {
+        params: { targetType: 'SCHEDULE' }
+      })
+      const taggedScheduleIds = allTagsResponse.data.data || []
+      // 筛选出没有标签的日程
+      scheduleList.value = allSchedules.filter(s => !taggedScheduleIds.includes(s.id))
+    } else if (currentTag.value !== 'all') {
+      // 有标签筛选
       const filterResponse = await axios.get('http://localhost:8080/api/tags/filter', {
         params: {
           tagId: currentTag.value,
-          targetType: 'SCHEDULE'  // 关键：只筛选日程
+          targetType: 'SCHEDULE'
         }
       })
-      if (filterResponse.data.code === 200) {
-        scheduleIds = filterResponse.data.data || []
+      scheduleIds = filterResponse.data.data || []
+      if (scheduleIds.length > 0) {
+        const response = await axios.get('http://localhost:8080/api/schedule/list', {
+          params: { ids: scheduleIds.join(',') }
+        })
+        scheduleList.value = response.data.data || []
+      } else {
+        scheduleList.value = []
       }
-    }
-
-    // 获取日程列表
-    let url = 'http://localhost:8080/api/schedule/list'
-    let params = {}
-
-    if (scheduleIds.length > 0) {
-      // 有筛选条件，传 ids 参数
-      params.ids = scheduleIds.join(',')
-      const response = await axios.get(url, { params })
-      scheduleList.value = response.data.data || []
-    } else if (currentTag.value !== 'all' && scheduleIds.length === 0) {
-      // 筛选的标签下没有日程，返回空列表
-      scheduleList.value = []
     } else {
-      // 没有筛选条件（全部），获取所有日程
-      const response = await axios.get(url)
+      // 所有日程
+      const response = await axios.get('http://localhost:8080/api/schedule/list')
       scheduleList.value = response.data.data || []
     }
 

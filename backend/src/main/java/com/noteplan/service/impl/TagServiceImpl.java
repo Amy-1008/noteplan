@@ -137,4 +137,8 @@ public class TagServiceImpl implements TagService {
     public List<Long> getTargetIdsByTag(Long tagId, String targetType) {
         return noteTagMapper.selectTargetIdsByTag(tagId, targetType);
     }
+    @Override
+    public List<Long> getAllTargetIdsByType(String targetType) {
+        return noteTagMapper.selectAllTargetIdsByType(targetType);
+    }
 }

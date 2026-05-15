@@ -11,6 +11,14 @@
       >
         📋 所有
       </div>
+      <!-- 未分类 -->
+      <div
+          class="tag-item"
+          :class="{ active: currentTag === 'uncategorized' }"
+          @click="selectTag('uncategorized')"
+      >
+        📁 未分类
+      </div>
       <div
           v-for="tag in sortedTagList"
           :key="tag.id"

@@ -62,7 +62,7 @@ public class TagController {
         return Result.success();
     }
 
-    //获取目前的标签
+    //根据目标id获取目前的标签
     @GetMapping("/target")
     public Result<Tag> getTagByTarget(@RequestParam Long targetId,
                                       @RequestParam String targetType) {
@@ -78,11 +78,16 @@ public class TagController {
         return Result.success();
     }
 
-    //根据标签id筛选目标id
     @GetMapping("/filter")
-    public Result<List<Long>> filterByTag(@RequestParam Long tagId,
+    public Result<List<Long>> filterByTag(@RequestParam(required = false) Long tagId,
                                           @RequestParam(required = false) String targetType) {
-        List<Long> targetIds = tagService.getTargetIdsByTag(tagId, targetType);
+        List<Long> targetIds;
+        if (tagId == null) {
+            // 不传 tagId 时，获取所有有标签的目标ID
+            targetIds = tagService.getAllTargetIdsByType(targetType);
+        } else {
+            targetIds = tagService.getTargetIdsByTag(tagId, targetType);
+        }
         return Result.success(targetIds);
     }
 }

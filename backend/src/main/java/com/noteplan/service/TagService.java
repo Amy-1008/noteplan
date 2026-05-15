@@ -37,4 +37,5 @@ public interface TagService {
      * 根据标签筛选目标ID列表
      */
     List<Long> getTargetIdsByTag(Long tagId, String targetType);
+    List<Long> getAllTargetIdsByType(String targetType);
 }
