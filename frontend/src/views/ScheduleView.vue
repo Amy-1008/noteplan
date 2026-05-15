@@ -225,8 +225,8 @@
         <!-- 时间类型选择：时间点 / 时间段 -->
         <el-form-item label="时间类型" prop="timeType">
           <el-radio-group v-model="formData.timeType">
-            <el-radio label="point">时间点</el-radio>
-            <el-radio label="period">时间段</el-radio>
+            <el-radio value="point">时间点</el-radio>
+            <el-radio value="period">时间段</el-radio>
           </el-radio-group>
         </el-form-item>
 
@@ -237,7 +237,8 @@
               type="datetime"
               placeholder="选择日期时间"
               format="YYYY-MM-DD HH:mm"
-              value-format="YYYY-MM-DD HH:mm:ss"
+              value-format="YYYY-MM-DDTHH:mm:ss"
+              @change="handleEndTimeChange"
               style="width: 100%"
           />
         </el-form-item>
@@ -250,7 +251,8 @@
                 type="datetime"
                 placeholder="选择开始时间"
                 format="YYYY-MM-DD HH:mm"
-                value-format="YYYY-MM-DD HH:mm:ss"
+                value-format="YYYY-MM-DDTHH:mm:ss"
+                @change="handleStartTimeChange"
                 style="width: 100%"
             />
           </el-form-item>
@@ -260,7 +262,8 @@
                 type="datetime"
                 placeholder="选择结束时间"
                 format="YYYY-MM-DD HH:mm"
-                value-format="YYYY-MM-DD HH:mm:ss"
+                value-format="YYYY-MM-DDTHH:mm:ss"
+                @change="handleEndTimeChangeForPeriod"
                 style="width: 100%"
             />
           </el-form-item>
@@ -340,9 +343,9 @@ const formRef = ref(null)
 // 表单数据
 const formData = ref({
   title: '',
-  timeType: 'point',           // 'point' 或 'period'
-  startTime: '',               // 时间段时用
-  endTime: '',                 // 时间点/时间段都用
+  timeType: 'point',
+  startTime: '',
+  endTime: '',
   repeatRule: 'none',
   remark: '',
   tagIds: [],
@@ -382,8 +385,26 @@ const pageSizeMap = ref({
   completed: 5
 })
 
+// ---------- 时间辅助函数 ----------
+const getOneHourLater = () => {
+  const date = new Date()
+  date.setHours(date.getHours() + 1)
+  return date
+}
+
+const formatDateTime = (date) => {
+  if (!date) return ''
+  const d = new Date(date)
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  const hours = String(d.getHours()).padStart(2, '0')
+  const minutes = String(d.getMinutes()).padStart(2, '0')
+  const seconds = String(d.getSeconds()).padStart(2, '0')
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`
+}
+
 // ---------- 辅助函数 ----------
-// 格式化日程时间显示
 const formatScheduleTime = (schedule) => {
   if (!schedule.endTime) return ''
 
@@ -392,22 +413,18 @@ const formatScheduleTime = (schedule) => {
     return `${date.getMonth() + 1}-${date.getDate()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`
   }
 
-  // 有时间点：startTime 为 null
   if (!schedule.startTime) {
     return formatTime(schedule.endTime)
   }
 
-  // 时间段：显示 开始 ~ 结束
   return `${formatTime(schedule.startTime)} ~ ${formatTime(schedule.endTime)}`
 }
 
-// 判断是否过期
 const isExpired = (schedule) => {
   if (schedule.completed) return false
   return new Date(schedule.endTime) < new Date()
 }
 
-// 判断是否在接下来7天内
 const isNextWeek = (schedule) => {
   if (schedule.completed) return false
   const now = new Date()
@@ -461,12 +478,69 @@ const handlePageSizeChange = (group, size) => {
   currentPageMap.value[group] = 1
 }
 
+const getDefaultTime = () => {
+  return formatDateTime(getOneHourLater())
+}
+
+const handleEndTimeChange = (val) => {
+  if (val && formData.value.timeType === 'point') {
+    const now = new Date()
+    const selectedDate = new Date(val)
+    selectedDate.setHours(now.getHours() + 1, now.getMinutes(), now.getSeconds())
+    formData.value.endTime = formatDateTime(selectedDate)
+  }
+}
+
+const handleStartTimeChange = (val) => {
+  if (val && formData.value.timeType === 'period') {
+    const start = new Date(val)
+    const end = formData.value.endTime ? new Date(formData.value.endTime) : null
+
+    if (!end || end <= start) {
+      const autoEnd = new Date(start.getTime() + 60 * 60 * 1000)
+      formData.value.endTime = formatDateTime(autoEnd)
+      ElMessage.info('结束时间已自动调整为开始时间后1小时')
+    }
+  }
+}
+
+// 时间段模式：结束时间变化时，校验是否大于开始时间
+const handleEndTimeChangeForPeriod = (val) => {
+  if (val && formData.value.timeType === 'period') {
+    const end = new Date(val)
+    const start = formData.value.startTime ? new Date(formData.value.startTime) : null
+
+    if (start && end <= start) {
+      const autoEnd = new Date(start.getTime() + 60 * 60 * 1000)
+      formData.value.endTime = formatDateTime(autoEnd)
+      ElMessage.warning('结束时间不能早于或等于开始时间，已自动调整为开始时间后1小时')
+    }
+  }
+}
+
+// 监听时间类型切换
+watch(() => formData.value.timeType, (newVal) => {
+  const defaultTime = getDefaultTime()
+
+  if (newVal === 'point') {
+    formData.value.startTime = ''
+    formData.value.endTime = defaultTime
+  } else {
+    const defaultStart = new Date()
+    const defaultEnd = new Date(defaultStart.getTime() + 60 * 60 * 1000)
+    formData.value.startTime = formatDateTime(defaultStart)
+    formData.value.endTime = formatDateTime(defaultEnd)
+  }
+})
+
 const openAddDialog = () => {
+  const defaultTime = getDefaultTime()
+
   formData.value = {
     title: '',
     timeType: 'point',
     startTime: '',
-    endTime: '',
+    endTime: defaultTime,
     repeatRule: 'none',
     remark: '',
     tagIds: [],
@@ -485,7 +559,6 @@ const submitSchedule = async () => {
     }
 
     try {
-      // 构建提交数据
       const submitData = {
         title: formData.value.title,
         repeatRule: formData.value.repeatRule,
@@ -495,11 +568,9 @@ const submitSchedule = async () => {
       }
 
       if (formData.value.timeType === 'point') {
-        // 时间点：startTime = null, endTime = 填的值
         submitData.startTime = null
         submitData.endTime = formData.value.endTime
       } else {
-        // 时间段：startTime 和 endTime 都填
         submitData.startTime = formData.value.startTime
         submitData.endTime = formData.value.endTime
       }
