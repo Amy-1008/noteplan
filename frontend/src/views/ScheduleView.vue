@@ -1,28 +1,7 @@
 <template>
   <div class="schedule-container">
-    <!-- 左侧：标签分类块 -->
-    <div class="schedule-sidebar">
-      <div class="sidebar-header">分类</div>
-      <div class="tag-list">
-        <div
-            class="tag-item"
-            :class="{ active: currentTag === 'all' }"
-            @click="currentTag = 'all'"
-        >
-          📋 所有
-        </div>
-        <div
-            v-for="tag in tagList"
-            :key="tag.id"
-            class="tag-item"
-            :class="{ active: currentTag === tag.id }"
-            @click="currentTag = tag.id"
-        >
-          #{{ tag.name }}
-        </div>
-        <div v-if="tagList.length === 0" class="tag-empty">暂无标签</div>
-      </div>
-    </div>
+    <!-- 左侧：标签侧边栏组件 -->
+    <TagSidebar v-model="currentTag" @change="onTagChange" />
 
     <!-- 右侧主内容区 -->
     <div class="schedule-main">
@@ -331,6 +310,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import axios from 'axios'
+import TagSidebar from "@/components/TagSidebar.vue"
 
 // ---------- 数据 ----------
 const scheduleList = ref([])
@@ -456,6 +436,11 @@ const paginatedGroups = computed(() => {
 const noData = computed(() => scheduleList.value.length === 0)
 
 // ---------- 事件 ----------
+const onTagChange = (tagId) => {
+  // 标签变化时刷新日程列表
+  fetchScheduleList()
+}
+
 const toggleComplete = async (schedule) => {
   try {
     await axios.put('http://localhost:8080/api/schedule/complete', null, {
@@ -594,7 +579,7 @@ const submitSchedule = async () => {
 // ---------- API ----------
 const fetchTagList = async () => {
   try {
-    const response = await axios.get('http://localhost:8080/api/tag/list')
+    const response = await axios.get('http://localhost:8080/api/tags')
     if (response.data.code === 200) {
       tagList.value = response.data.data
     }
@@ -616,23 +601,51 @@ const fetchNoteList = async () => {
 
 const fetchScheduleList = async () => {
   try {
-    const params = currentTag.value !== 'all' ? { tagId: currentTag.value } : {}
-    const response = await axios.get('http://localhost:8080/api/schedule/list', { params })
-    if (response.data.code === 200) {
-      scheduleList.value = response.data.data
-      currentPageMap.value = {
-        expired: 1,
-        nextWeek: 1,
-        other: 1,
-        completed: 1
+    let scheduleIds = []
+
+    if (currentTag.value !== 'all') {
+      // 调用筛选接口，只获取日程类型的目标ID
+      const filterResponse = await axios.get('http://localhost:8080/api/tags/filter', {
+        params: {
+          tagId: currentTag.value,
+          targetType: 'SCHEDULE'  // 关键：只筛选日程
+        }
+      })
+      if (filterResponse.data.code === 200) {
+        scheduleIds = filterResponse.data.data || []
       }
+    }
+
+    // 获取日程列表
+    let url = 'http://localhost:8080/api/schedule/list'
+    let params = {}
+
+    if (scheduleIds.length > 0) {
+      // 有筛选条件，传 ids 参数
+      params.ids = scheduleIds.join(',')
+      const response = await axios.get(url, { params })
+      scheduleList.value = response.data.data || []
+    } else if (currentTag.value !== 'all' && scheduleIds.length === 0) {
+      // 筛选的标签下没有日程，返回空列表
+      scheduleList.value = []
+    } else {
+      // 没有筛选条件（全部），获取所有日程
+      const response = await axios.get(url)
+      scheduleList.value = response.data.data || []
+    }
+
+    // 重置分页
+    currentPageMap.value = {
+      expired: 1,
+      nextWeek: 1,
+      other: 1,
+      completed: 1
     }
   } catch (error) {
     console.error('获取日程失败', error)
+    ElMessage.error('获取日程失败')
   }
 }
-
-watch(currentTag, () => fetchScheduleList())
 
 onMounted(() => {
   fetchTagList()
@@ -650,56 +663,6 @@ onMounted(() => {
   margin: 0;
   padding: 0;
   overflow: hidden;
-}
-
-/* 左侧标签栏 */
-.schedule-sidebar {
-  width: 220px;
-  background-color: white;
-  border-right: 1px solid #e4e7ed;
-  padding: 20px 0;
-  overflow-y: auto;
-  flex-shrink: 0;
-}
-
-.sidebar-header {
-  font-size: 16px;
-  font-weight: 600;
-  color: #303133;
-  padding: 0 16px 12px 16px;
-  border-bottom: 1px solid #e4e7ed;
-  margin-bottom: 12px;
-}
-
-.tag-list {
-  display: flex;
-  flex-direction: column;
-}
-
-.tag-item {
-  padding: 10px 16px;
-  font-size: 14px;
-  color: #606266;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.tag-item:hover {
-  background-color: #f5f7fa;
-  color: #409eff;
-}
-
-.tag-item.active {
-  background-color: #ecf5ff;
-  color: #409eff;
-  font-weight: 500;
-}
-
-.tag-empty {
-  padding: 10px 16px;
-  font-size: 13px;
-  color: #c0c4cc;
-  text-align: center;
 }
 
 /* 右侧主内容区 */

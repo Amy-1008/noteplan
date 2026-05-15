@@ -78,7 +78,7 @@ public class TagController {
         return Result.success();
     }
 
-    //根据id筛选目标标签
+    //根据标签id筛选目标id
     @GetMapping("/filter")
     public Result<List<Long>> filterByTag(@RequestParam Long tagId,
                                           @RequestParam(required = false) String targetType) {

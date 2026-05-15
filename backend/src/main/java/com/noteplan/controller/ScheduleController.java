@@ -7,21 +7,33 @@ import com.noteplan.vo.Result;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/schedule")
 @CrossOrigin(origins = "http://localhost:5174")
-//@CrossOrigin(origins = "*")
 public class ScheduleController {
 
     @Autowired
     private ScheduleService scheduleService;
 
-    // 获取所有日程列表
+    // 获取日程列表（支持 ids 参数筛选）
     @GetMapping("/list")
-    public Result<List<Schedule>> list() {
-        List<Schedule> list = scheduleService.getAllSchedules();
+    public Result<List<Schedule>> list(@RequestParam(required = false) String ids) {
+        List<Schedule> list;
+        if (ids != null && !ids.isEmpty()) {
+            // 解析 ids 参数，例如 "1,2,3"
+            List<Long> idList = Arrays.stream(ids.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .map(Long::parseLong)
+                    .collect(Collectors.toList());
+            list = scheduleService.getSchedulesByIds(idList);
+        } else {
+            list = scheduleService.getAllSchedules();
+        }
         return Result.success(list);
     }
 

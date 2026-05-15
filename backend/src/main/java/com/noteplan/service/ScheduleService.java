@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 
 @Service
@@ -27,6 +28,14 @@ public class ScheduleService {
 
     public List<Schedule> getAllSchedules() {
         return scheduleMapper.findAll();
+    }
+
+    // 根据ID列表获取日程
+    public List<Schedule> getSchedulesByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return scheduleMapper.findByIds(ids);
     }
 
     @Transactional
