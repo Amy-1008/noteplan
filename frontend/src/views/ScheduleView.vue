@@ -23,6 +23,7 @@
                 v-for="schedule in paginatedGroups.expired"
                 :key="schedule.id"
                 class="schedule-item expired"
+                @click="goToDetail(schedule.id)"
             >
               <el-checkbox v-model="schedule.completed" @change="toggleComplete(schedule)" />
               <span class="schedule-title">{{ schedule.title }}</span>
@@ -66,6 +67,7 @@
                 v-for="schedule in paginatedGroups.nextWeek"
                 :key="schedule.id"
                 class="schedule-item normal"
+                @click="goToDetail(schedule.id)"
             >
               <el-checkbox v-model="schedule.completed" @change="toggleComplete(schedule)" />
               <span class="schedule-title">{{ schedule.title }}</span>
@@ -109,6 +111,7 @@
                 v-for="schedule in paginatedGroups.other"
                 :key="schedule.id"
                 class="schedule-item normal"
+                @click="goToDetail(schedule.id)"
             >
               <el-checkbox v-model="schedule.completed" @change="toggleComplete(schedule)" />
               <span class="schedule-title">{{ schedule.title }}</span>
@@ -152,6 +155,7 @@
                 v-for="schedule in paginatedGroups.completed"
                 :key="schedule.id"
                 class="schedule-item completed"
+                @click="goToDetail(schedule.id)"
             >
               <el-checkbox v-model="schedule.completed" disabled />
               <span class="schedule-title">{{ schedule.title }}</span>
@@ -309,6 +313,8 @@ import { Plus } from '@element-plus/icons-vue'
 import axios from 'axios'
 import TagSidebar from "@/components/TagSidebar.vue"
 import TagSelector from "@/components/TagSelector.vue";
+import { useRouter } from 'vue-router'
+import { ElMessageBox } from 'element-plus'
 
 // ---------- 数据 ----------
 const scheduleList = ref([])
@@ -317,6 +323,7 @@ const noteList = ref([])
 const currentTag = ref('all')
 const dialogVisible = ref(false)
 const formRef = ref(null)
+const router = useRouter()
 
 // 表单数据
 const formData = ref({
@@ -440,16 +447,36 @@ const onTagChange = (tagId) => {
 }
 
 const toggleComplete = async (schedule) => {
+  const originalCompleted = schedule.completed
+  const newCompleted = originalCompleted ? 0 : 1
+  const actionText = originalCompleted ? '取消完成' : '标记为完成'
+
   try {
+    await ElMessageBox.confirm(
+        `确定要${actionText}吗？`,
+        '提示',
+        {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }
+    )
+
     await axios.put('http://localhost:8080/api/schedule/complete', null, {
-      params: { id: schedule.id, completed: schedule.completed ? 1 : 0 }
+      params: { id: schedule.id, completed: newCompleted }
     })
-    ElMessage.success(schedule.completed ? '已完成' : '已取消完成')
+
+    schedule.completed = newCompleted
+    ElMessage.success(newCompleted ? '已完成' : '已取消完成')
     fetchScheduleList()
-  } catch (error) {
-    schedule.completed = !schedule.completed
-    ElMessage.error('操作失败')
+  } catch {
+    // 用户取消，恢复原状态
+    schedule.completed = originalCompleted
   }
+}
+
+const goToDetail = (id) => {
+  router.push({ path: '/schedule/detail', query: { id } })
 }
 
 const handlePageChange = (group, page) => {
@@ -546,7 +573,7 @@ const submitSchedule = async () => {
         title: formData.value.title,
         repeatRule: formData.value.repeatRule,
         remark: formData.value.remark,
-        tagIds: formData.value.tagId ? [formData.value.tagId] : [],  // 转为数组格式
+        tagId: formData.value.tagId,
         noteIds: formData.value.noteIds
       }
 

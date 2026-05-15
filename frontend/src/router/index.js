@@ -31,6 +31,11 @@ const routes = [
     component: ScheduleView,
   },
   {
+    path: '/schedule/detail',
+    name: 'ScheduleDetail',
+    component: () => import('@/views/ScheduleDetail.vue')
+  },
+  {
     path: '/calendar',
     name: 'calendar',
     component: () => import('@/views/CalendarView.vue'),

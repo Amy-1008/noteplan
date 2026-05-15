@@ -39,4 +39,9 @@ public interface ScheduleMapper {
     // 更新时间（重复日程用）
     @Update("UPDATE schedule SET start_time = #{startTime}, end_time = #{endTime} WHERE id = #{id}")
     int updateTime(@Param("id") Long id, @Param("startTime") LocalDateTime startTime, @Param("endTime") LocalDateTime endTime);
+
+    // 更新日程
+    @Update("UPDATE schedule SET title = #{title}, start_time = #{startTime}, end_time = #{endTime}, " +
+            "repeat_rule = #{repeatRule}, remark = #{remark} WHERE id = #{id}")
+    int update(Schedule schedule);
 }

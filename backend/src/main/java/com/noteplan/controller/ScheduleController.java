@@ -1,9 +1,11 @@
 package com.noteplan.controller;
 
 import com.noteplan.dto.ScheduleAddDTO;
+import com.noteplan.dto.ScheduleUpdateDTO;
 import com.noteplan.entity.Schedule;
 import com.noteplan.service.ScheduleService;
 import com.noteplan.vo.Result;
+import com.noteplan.vo.ScheduleDetailVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -44,10 +46,24 @@ public class ScheduleController {
         return Result.success();
     }
 
+    // 更新日程
+    @PutMapping("/update")
+    public Result<Void> updateSchedule(@RequestBody ScheduleUpdateDTO dto) {
+        scheduleService.updateSchedule(dto);
+        return Result.success();
+    }
+
     // 更新完成状态
     @PutMapping("/complete")
     public Result<Void> updateComplete(@RequestParam Long id, @RequestParam Integer completed) {
         scheduleService.updateComplete(id, completed);
         return Result.success();
+    }
+
+    // 获取单个日程详情
+    @GetMapping("/detail")
+    public Result<ScheduleDetailVO> detail(@RequestParam Long id) {
+        ScheduleDetailVO vo = scheduleService.getDetailById(id);
+        return Result.success(vo);
     }
 }
