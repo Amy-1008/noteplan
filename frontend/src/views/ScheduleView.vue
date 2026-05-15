@@ -194,6 +194,7 @@
         v-model="dialogVisible"
         title="添加日程"
         width="550px"
+        append-to-body
         :close-on-click-modal="false"
     >
       <el-form :model="formData" :rules="formRules" ref="formRef" label-width="80px">
@@ -269,15 +270,11 @@
           />
         </el-form-item>
 
-        <el-form-item label="标签">
-          <el-select v-model="formData.tagIds" multiple placeholder="选择标签" style="width: 100%">
-            <el-option
-                v-for="tag in tagList"
-                :key="tag.id"
-                :label="tag.name"
-                :value="tag.id"
-            />
-          </el-select>
+        <el-form-item label="标签" prop="tagId">
+          <TagSelector
+              v-model="formData.tagId"
+              @tag-created="handleTagCreated"
+          />
         </el-form-item>
 
         <el-form-item label="关联笔记">
@@ -311,6 +308,7 @@ import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import axios from 'axios'
 import TagSidebar from "@/components/TagSidebar.vue"
+import TagSelector from "@/components/TagSelector.vue";
 
 // ---------- 数据 ----------
 const scheduleList = ref([])
@@ -328,7 +326,7 @@ const formData = ref({
   endTime: '',
   repeatRule: 'none',
   remark: '',
-  tagIds: [],
+  tagId:null,
   noteIds: []
 })
 
@@ -528,7 +526,7 @@ const openAddDialog = () => {
     endTime: defaultTime,
     repeatRule: 'none',
     remark: '',
-    tagIds: [],
+    tagId:null,
     noteIds: []
   }
   dialogVisible.value = true
@@ -548,7 +546,7 @@ const submitSchedule = async () => {
         title: formData.value.title,
         repeatRule: formData.value.repeatRule,
         remark: formData.value.remark,
-        tagIds: formData.value.tagIds,
+        tagIds: formData.value.tagId ? [formData.value.tagId] : [],  // 转为数组格式
         noteIds: formData.value.noteIds
       }
 
@@ -646,7 +644,9 @@ const fetchScheduleList = async () => {
     ElMessage.error('获取日程失败')
   }
 }
-
+const handleTagCreated = (newTag) => {
+  fetchTagList()
+}
 onMounted(() => {
   fetchTagList()
   fetchNoteList()
