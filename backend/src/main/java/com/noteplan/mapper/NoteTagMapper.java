@@ -38,9 +38,13 @@ public interface NoteTagMapper {
             "AND (#{targetType} IS NULL OR target_type = #{targetType})")
     List<Long> selectTargetIdsByTag(@Param("tagId") Long tagId,
                                     @Param("targetType") String targetType);
-    //筛选所有关联了标签的日程or笔记的ids
-    @Select("SELECT DISTINCT target_id FROM note_tag WHERE target_type = #{targetType}")
-    List<Long> selectAllTargetIdsByType(@Param("targetType") String targetType);
+    // 根据tagid获取日程ID列表
+    @Select("SELECT target_id FROM note_tag WHERE tag_id = #{tagId} AND target_type = 'SCHEDULE'")
+    List<Long> selectScheduleIdsByTag(Long tagId);
+
+    // 根据tagid获取笔记ID列表
+    @Select("SELECT target_id FROM note_tag WHERE tag_id = #{tagId} AND target_type = 'NOTE'")
+    List<Long> selectNoteIdsByTag(Long tagId);
 
     //根据传入的tagid及目标类型目标，并返回目标的id及类型
     @Select("<script>" +

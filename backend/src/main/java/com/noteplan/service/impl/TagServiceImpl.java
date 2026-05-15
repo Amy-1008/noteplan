@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
 import java.util.List;
 
 @Slf4j
@@ -135,13 +136,21 @@ public class TagServiceImpl implements TagService {
     }
 
     @Override
-    public List<Long> getTargetIdsByTag(Long tagId, String targetType) {
-        return noteTagMapper.selectTargetIdsByTag(tagId, targetType);
+    public List<Long> getScheduleIdsByTag(Long tagId) {
+        if (tagId == null) {
+            return Collections.emptyList();
+        }
+        return noteTagMapper.selectScheduleIdsByTag(tagId);
     }
+
     @Override
-    public List<Long> getAllTargetIdsByType(String targetType) {
-        return noteTagMapper.selectAllTargetIdsByType(targetType);
+    public List<Long> getNoteIdsByTag(Long tagId) {
+        if (tagId == null) {
+            return Collections.emptyList();
+        }
+        return noteTagMapper.selectNoteIdsByTag(tagId);
     }
+
 
     @Override
     public List<TargetInfo> getTargets(Long tagId, String targetType) {

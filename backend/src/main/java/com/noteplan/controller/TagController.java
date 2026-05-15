@@ -79,10 +79,24 @@ public class TagController {
         return Result.success();
     }
 
-    //根据传入的标签id及目标类型进行筛选，并返回筛选对象的id及类型
+    // 根据tagid获取日程ID列表
+    @GetMapping("/schedule-ids")
+    public Result<List<Long>> getScheduleIdsByTag(@RequestParam Long tagId) {
+        List<Long> ids = tagService.getScheduleIdsByTag(tagId);
+        return Result.success(ids);
+    }
+
+    // 根据tagid获取笔记ID列表
+    @GetMapping("/note-ids")
+    public Result<List<Long>> getNoteIdsByTag(@RequestParam Long tagId) {
+        List<Long> ids = tagService.getNoteIdsByTag(tagId);
+        return Result.success(ids);
+    }
+
+    // 通用筛选接口(用于不要求类型的全局搜索)
     @GetMapping("/filter")
-    public Result<List<TargetInfo>> filterByTag(@RequestParam(required = false) Long tagId,
-                                                @RequestParam(required = false) String targetType) {
+    public Result<List<TargetInfo>> filter(@RequestParam(required = false) Long tagId,
+                                           @RequestParam(required = false) String targetType) {
         List<TargetInfo> targets = tagService.getTargets(tagId, targetType);
         return Result.success(targets);
     }
