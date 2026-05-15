@@ -1,6 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import ScheduleView from '@/views/ScheduleView.vue'
-import TagView from "@/views/TagView.vue";  // 导入你写的日程页面
+import TagView from "@/views/TagView.vue"
+import NoteView from '@/views/NoteView.vue'
+import NoteEdit from '@/views/NoteEdit.vue'
 
 const routes = [
   {
@@ -11,8 +13,17 @@ const routes = [
   {
     path: '/notes',
     name: 'notes',
-    component: () => import('@/views/PlaceholderView.vue'),
-    props: { title: '笔记管理', desc: '备忘录 CRUD、版本历史（待实现）' },
+    component: NoteView,
+  },
+  {
+    path: '/notes/create',
+    name: 'note-create',
+    component: NoteEdit,
+  },
+  {
+    path: '/notes/edit/:id',
+    name: 'note-edit',
+    component: NoteEdit,
   },
   {
     path: '/schedules',
