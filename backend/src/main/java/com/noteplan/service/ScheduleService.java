@@ -88,7 +88,6 @@ public class ScheduleService {
             LocalDateTime newStartTime = schedule.getStartTime() != null
                     ? calculateNextTime(schedule.getStartTime(), schedule.getRepeatRule())
                     : null;
-
             scheduleMapper.updateTime(id, newStartTime, newEndTime);
         }
     }

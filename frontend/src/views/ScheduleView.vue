@@ -25,7 +25,7 @@
                 class="schedule-item expired"
                 @click="goToDetail(schedule.id)"
             >
-              <el-checkbox v-model="schedule.completed" @change="toggleComplete(schedule)" />
+              <el-checkbox v-model="schedule.completed" @click.stop="toggleComplete(schedule, $event)"/>
               <span class="schedule-title">{{ schedule.title }}</span>
               <span class="schedule-date">{{ formatScheduleTime(schedule) }}</span>
             </div>
@@ -69,7 +69,7 @@
                 class="schedule-item normal"
                 @click="goToDetail(schedule.id)"
             >
-              <el-checkbox v-model="schedule.completed" @change="toggleComplete(schedule)" />
+              <el-checkbox v-model="schedule.completed" @click.stop="toggleComplete(schedule, $event)"/>
               <span class="schedule-title">{{ schedule.title }}</span>
               <span class="schedule-date">{{ formatScheduleTime(schedule) }}</span>
             </div>
@@ -113,7 +113,7 @@
                 class="schedule-item normal"
                 @click="goToDetail(schedule.id)"
             >
-              <el-checkbox v-model="schedule.completed" @change="toggleComplete(schedule)" />
+              <el-checkbox v-model="schedule.completed" @click.stop="toggleComplete(schedule, $event)" />
               <span class="schedule-title">{{ schedule.title }}</span>
               <span class="schedule-date">{{ formatScheduleTime(schedule) }}</span>
             </div>
@@ -157,7 +157,10 @@
                 class="schedule-item completed"
                 @click="goToDetail(schedule.id)"
             >
-              <el-checkbox v-model="schedule.completed" disabled />
+              <el-checkbox
+                  v-model="schedule.completed"
+                  @click.stop="toggleComplete(schedule, $event)"
+              />
               <span class="schedule-title">{{ schedule.title }}</span>
               <span class="schedule-date">{{ formatScheduleTime(schedule) }}</span>
             </div>
@@ -203,7 +206,12 @@
     >
       <el-form :model="formData" :rules="formRules" ref="formRef" label-width="80px">
         <el-form-item label="标题" prop="title">
-          <el-input v-model="formData.title" placeholder="请输入日程标题" />
+          <el-input
+              v-model="formData.title"
+              placeholder="请输入日程标题"
+              maxlength="20"
+              show-word-limit
+          />
         </el-form-item>
 
         <!-- 时间类型选择：时间点 / 时间段 -->
@@ -271,6 +279,8 @@
               type="textarea"
               :rows="3"
               placeholder="请输入备注"
+              maxlength="800"
+              show-word-limit
           />
         </el-form-item>
 
@@ -339,7 +349,10 @@ const formData = ref({
 
 // 表单校验规则
 const formRules = {
-  title: [{ required: true, message: '请输入日程标题', trigger: 'blur' }],
+  title: [
+    { required: true, message: '请输入日程标题', trigger: 'blur' },
+    { max: 20, message: '标题不能超过20个字符', trigger: 'blur' }  // 添加这行
+  ],
   endTime: [{ required: true, message: '请选择时间', trigger: 'change' }],
   startTime: [{
     required: true,
@@ -352,7 +365,11 @@ const formRules = {
         callback()
       }
     }
-  }]
+  }],
+  // 备注的校验规则（需要添加到 el-form-item 的 prop）
+  remark: [
+    { max: 800, message: '备注不能超过800个字符', trigger: 'blur' }
+  ]
 }
 
 // 分页
@@ -446,32 +463,33 @@ const onTagChange = (tagId) => {
   fetchScheduleList()
 }
 
-const toggleComplete = async (schedule) => {
+const toggleComplete = async (schedule, event) => {
+  // 阻止事件冒泡到父元素
+  if (event) event.stopPropagation()
+
   const originalCompleted = schedule.completed
   const newCompleted = originalCompleted ? 0 : 1
-  const actionText = originalCompleted ? '取消完成' : '标记为完成'
+
+  // 先乐观更新 UI
+  schedule.completed = newCompleted
 
   try {
-    await ElMessageBox.confirm(
-        `确定要${actionText}吗？`,
-        '提示',
-        {
-          confirmButtonText: '确定',
-          cancelButtonText: '取消',
-          type: 'warning'
-        }
-    )
-
-    await axios.put('http://localhost:8080/api/schedule/complete', null, {
+    console.log('发送请求:', { id: schedule.id, completed: newCompleted })  // 添加日志
+    const response = await axios.put('http://localhost:8080/api/schedule/complete', null, {
       params: { id: schedule.id, completed: newCompleted }
     })
-
-    schedule.completed = newCompleted
-    ElMessage.success(newCompleted ? '已完成' : '已取消完成')
-    fetchScheduleList()
-  } catch {
-    // 用户取消，恢复原状态
+    console.log('响应:', response.data)  // 添加日志
+    if (response.data.code === 200) {
+      await fetchScheduleList()
+      ElMessage.success(newCompleted ? '已完成' : '已取消完成')
+    } else {
+      throw new Error(response.data.message)
+    }
+  } catch (error) {
+    // 失败时回滚状态
     schedule.completed = originalCompleted
+    console.error('更新完成状态失败', error)
+    ElMessage.error('操作失败，请重试')
   }
 }
 
