@@ -9,6 +9,7 @@ import com.noteplan.vo.ScheduleDetailVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import javax.validation.Valid;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -41,14 +42,14 @@ public class ScheduleController {
 
     // 新增日程
     @PostMapping("/add")
-    public Result<Void> addSchedule(@RequestBody ScheduleAddDTO dto) {
+    public Result<Void> addSchedule(@Valid @RequestBody ScheduleAddDTO dto) {
         scheduleService.addSchedule(dto);
         return Result.success();
     }
 
     // 更新日程
     @PutMapping("/update")
-    public Result<Void> updateSchedule(@RequestBody ScheduleUpdateDTO dto) {
+    public Result<Void> updateSchedule(@Valid @RequestBody ScheduleUpdateDTO dto) {
         scheduleService.updateSchedule(dto);
         return Result.success();
     }

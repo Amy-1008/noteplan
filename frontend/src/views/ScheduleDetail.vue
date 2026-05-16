@@ -85,42 +85,62 @@
         />
       </el-form-item>
 
-      <el-form-item label="标签">
-        <el-select v-model="formData.tagId" multiple placeholder="选择标签" style="width: 100%">
-          <el-option
-              v-for="tag in tagList"
-              :key="tag.id"
-              :label="tag.name"
-              :value="tag.id"
-          />
-        </el-select>
+
+      <el-form-item label="标签" prop="tagId">
+        <TagSelector
+            v-model="formData.tagId"
+            @tag-created="handleTagCreated"
+        />
       </el-form-item>
 
+
       <el-form-item label="关联笔记">
-        <el-select
-            v-model="formData.noteIds"
-            multiple
-            placeholder="选择关联笔记"
-            style="width: 100%"
-        >
-          <el-option
-              v-for="note in noteList"
-              :key="note.id"
-              :label="note.title"
-              :value="note.id"
-          />
-        </el-select>
+        <div class="notes-display">
+          <!-- 显示已选中的笔记（胶囊形式） -->
+          <div class="notes-list">
+            <el-tag
+                v-for="note in selectedNotes"
+                :key="note.id"
+                closable
+                @close="removeNote(note.id)"
+                type="success"
+                effect="plain"
+                style="margin-right: 8px; margin-bottom: 4px;"
+            >
+              {{ note.title }}
+            </el-tag>
+            <span v-if="selectedNotes.length === 0" class="placeholder-text">未关联笔记</span>
+          </div>
+
+          <!-- 选择笔记按钮/下拉框 -->
+          <el-select
+              v-model="pendingNoteId"
+              placeholder="选择关联笔记"
+              clearable
+              size="small"
+              style="width: 150px; margin-top: 8px;"
+              @change="addNote"
+          >
+            <el-option
+                v-for="note in availableNotes"
+                :key="note.id"
+                :label="note.title"
+                :value="note.id"
+            />
+          </el-select>
+        </div>
       </el-form-item>
     </el-form>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import axios from 'axios'
+import TagSelector from "@/components/TagSelector.vue";
 
 const route = useRoute()
 const router = useRouter()
@@ -128,7 +148,9 @@ const formRef = ref(null)
 
 const scheduleId = ref(route.query.id)
 const tagList = ref([])
-const noteList = ref([])
+
+// 所有笔记列表（从后端获取）
+const allNotes = ref([])
 
 // 格式化日期时间
 const formatDateTime = (date) => {
@@ -168,6 +190,62 @@ const formRules = {
   ]
 }
 
+// ---------- 标签和笔记显示相关 ----------
+const selectedTag = ref(null)        // 当前选中的标签对象
+const selectedNotes = ref([])        // 当前选中的笔记对象列表
+const pendingNoteId = ref(null)      // 临时选中的笔记ID
+
+// 可选的笔记列表（排除已选中的）
+const availableNotes = computed(() => {
+  const selectedIds = selectedNotes.value.map(n => n.id)
+  return allNotes.value.filter(n => !selectedIds.includes(n.id))
+})
+
+// 根据标签ID获取标签对象
+const getTagById = (tagId) => {
+  return tagList.value.find(t => t.id === tagId)
+}
+
+// 根据笔记ID列表获取笔记对象列表
+const getNotesByIds = (noteIds) => {
+  return allNotes.value.filter(n => noteIds.includes(n.id))
+}
+
+// 标签被选中时
+const onTagSelected = (tagId) => {
+  if (tagId) {
+    selectedTag.value = getTagById(tagId)
+    formData.value.tagId = tagId
+  } else {
+    selectedTag.value = null
+    formData.value.tagId = null
+  }
+}
+
+// 移除标签
+const removeTag = () => {
+  selectedTag.value = null
+  formData.value.tagId = null
+}
+
+// 添加笔记
+const addNote = (noteId) => {
+  if (noteId) {
+    const note = allNotes.value.find(n => n.id === noteId)
+    if (note && !selectedNotes.value.find(n => n.id === noteId)) {
+      selectedNotes.value.push(note)
+      formData.value.noteIds = selectedNotes.value.map(n => n.id)
+    }
+    pendingNoteId.value = null
+  }
+}
+
+// 移除笔记
+const removeNote = (noteId) => {
+  selectedNotes.value = selectedNotes.value.filter(n => n.id !== noteId)
+  formData.value.noteIds = selectedNotes.value.map(n => n.id)
+}
+
 // 获取日程详情
 const fetchScheduleDetail = async () => {
   try {
@@ -181,7 +259,19 @@ const fetchScheduleDetail = async () => {
       formData.value.repeatRule = data.repeatRule || 'none'
       formData.value.remark = data.remark || ''
 
-      // 判断时间类型
+      // 设置标签
+      if (data.tagId) {
+        selectedTag.value = getTagById(data.tagId)
+        formData.value.tagId = data.tagId
+      }
+
+      // 设置关联笔记
+      if (data.noteIds && data.noteIds.length > 0) {
+        selectedNotes.value = getNotesByIds(data.noteIds)
+        formData.value.noteIds = data.noteIds
+      }
+
+      // 时间类型处理
       if (!data.startTime) {
         formData.value.timeType = 'point'
         formData.value.endTime = data.endTime
@@ -215,7 +305,7 @@ const fetchNoteList = async () => {
   try {
     const response = await axios.get('http://localhost:8080/api/note/list')
     if (response.data.code === 200) {
-      noteList.value = response.data.data
+      allNotes.value = response.data.data
     }
   } catch (error) {
     console.error('获取笔记失败', error)
@@ -224,13 +314,14 @@ const fetchNoteList = async () => {
 
 // 保存日程
 const saveSchedule = async () => {
+  if (!formRef.value) return
+
   await formRef.value.validate(async (valid) => {
     if (!valid) {
       ElMessage.warning('请填写必填项')
       return
     }
 
-    // 二次确认
     ElMessageBox.confirm('确定要保存修改吗？', '确认', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
@@ -306,4 +397,30 @@ onMounted(() => {
   border-radius: 8px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
+
+.tag-display {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.notes-display {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.notes-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.placeholder-text {
+  color: #c0c4cc;
+  font-size: 13px;
+}
+
 </style>
