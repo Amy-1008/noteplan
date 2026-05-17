@@ -1,182 +1,365 @@
 <template>
-  <div class="note-container">
-    <div class="note-header">
-      <h2>我的笔记</h2>
-      <el-button type="primary" @click="goToCreate">+ 新建笔记</el-button>
+  <div class="note-view-container">
+    <!-- 页面头部（与日程、标签页风格一致） -->
+    <div class="page-header">
+      <h2 class="page-title">笔记管理</h2>
+      <el-button type="primary" @click="handleCreate">+ 新建笔记</el-button>
     </div>
 
-    <!-- 标签侧边栏筛选（复用现有组件） -->
-    <div class="note-sidebar">
-      <TagSidebar v-model="currentTag" @change="onTagChange" />
+    <!-- 查询条件卡片 -->
+    <div class="filter-card">
+      <el-form :inline="true" :model="queryParams" class="demo-form-inline">
+        <el-form-item label="笔记标题">
+          <el-input v-model="queryParams.title" placeholder="请输入标题" clearable style="width: 300px" />
+        </el-form-item>
+        <el-form-item label="标签">
+          <el-select v-model="queryParams.tagId" placeholder="请选择标签" clearable style="width: 300px">
+            <el-option
+              v-for="tag in tagList"
+              :key="tag.id"
+              :label="tag.name"
+              :value="tag.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="创建时间">
+          <el-date-picker
+            v-model="queryParams.createDate"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            value-format="YYYY-MM-DD"
+            clearable
+            style="width: 300px"
+          />
+        </el-form-item>
+        <el-form-item style="margin-left: 200px;">
+          <el-button type="primary" @click="handleQuery">查询</el-button>
+          <el-button @click="resetQuery">重置</el-button>
+        </el-form-item>
+      </el-form>
     </div>
 
-    <div class="note-list">
-      <el-empty v-if="filteredNotes.length === 0" description="暂无笔记，点击右上角新建" />
-      <div v-else class="note-cards">
-        <el-card v-for="note in paginatedNotes" :key="note.id" class="note-card" shadow="hover">
-          <template #header>
-            <div class="note-card-header">
-              <span class="note-title">{{ note.title || '无标题' }}</span>
-              <div class="note-actions">
-                <el-button text type="primary" @click="editNote(note.id)">编辑</el-button>
-                <el-button text type="danger" @click="confirmDelete(note)">删除</el-button>
-              </div>
-            </div>
-          </template>
-          <div class="note-content-preview">{{ note.content?.slice(0, 100) }}...</div>
-          <div class="note-footer">
-            <span class="note-time">更新于 {{ formatDate(note.updateTime) }}</span>
-            <el-tag v-if="noteTagMap[note.id]" size="small">{{ noteTagMap[note.id] }}</el-tag>
-          </div>
-        </el-card>
-      </div>
+    <!-- 笔记表格 -->
+    <el-table
+      :data="paginatedNotes"
+      stripe
+      border
+      style="width: 100%"
+      v-loading="loading"
+    >
+      <el-table-column prop="id" label="编号" width="80" align="center" />
+      <el-table-column prop="title" label="标题" width="180" align="center" />
+      <el-table-column prop="updateTime" label="更新日期" width="220" align="center">
+        <template #default="{ row }">
+          {{ formatDate(row.updateTime) }}
+        </template>
+      </el-table-column>
+      <el-table-column prop="tagName" label="标签" align="center" flex="1">
+        <template #default="{ row }">
+          <el-tag v-if="row.tagName" size="small" type="info">{{ row.tagName }}</el-tag>
+          <span v-else class="muted">未分类</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" width="200" align="center" fixed="right">
+        <template #default="{ row }">
+          <el-button type="primary" link size="small" @click="handleView(row)">查看正文</el-button>
+          <el-button type="success" link size="small" @click="handleEdit(row)">修改</el-button>
+          <el-popconfirm title="确认删除该笔记？删除后可在日程中解除关联，可恢复。" @confirm="handleDelete(row)">
+            <template #reference>
+              <el-button type="danger" link size="small">删除</el-button>
+            </template>
+          </el-popconfirm>
+        </template>
+      </el-table-column>
+    </el-table>
 
-      <!-- 分页 -->
-      <div class="pagination-wrapper">
-        <el-pagination
-          v-if="filteredNotes.length > pageSize"
-          background
-          layout="prev, pager, next"
-          :total="filteredNotes.length"
-          :page-size="pageSize"
-          v-model:current-page="currentPage"
-        />
-      </div>
+    <!-- 分页器 -->
+    <div class="pagination">
+      <el-pagination
+        background
+        layout="total, sizes, prev, pager, next, jumper"
+        :total="filteredNotes.length"
+        v-model:page-size="pageSize"
+        v-model:current-page="currentPage"
+        :page-sizes="[5, 10, 20, 50]"
+        @size-change="handlePageChange"
+        @current-change="handlePageChange"
+      />
     </div>
 
-    <!-- 删除确认弹窗 -->
-    <el-dialog v-model="deleteDialogVisible" title="确认删除" width="30%">
-      <span>确定要删除笔记「{{ deleteTarget?.title }}」吗？删除后可在日历中解除关联。</span>
+    <!-- 新建/编辑笔记弹窗 -->
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="600px" @close="resetForm">
+      <el-form :model="noteForm" label-width="100px" ref="formRef" :rules="formRules">
+        <el-form-item label="标题" prop="title">
+          <el-input v-model="noteForm.title" placeholder="请输入标题（可选，不填自动截取）" maxlength="500" show-word-limit />
+        </el-form-item>
+        <el-form-item label="内容" prop="content">
+          <el-input
+            v-model="noteForm.content"
+            type="textarea"
+            :rows="12"
+            placeholder="请输入笔记内容（最多5000字符）"
+            maxlength="5000"
+            show-word-limit
+          />
+        </el-form-item>
+        <el-form-item label="标签">
+          <el-select v-model="noteForm.tagId" placeholder="请选择标签" clearable style="width: 100%">
+            <el-option
+              v-for="tag in tagList"
+              :key="tag.id"
+              :label="tag.name"
+              :value="tag.id"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
       <template #footer>
-        <el-button @click="deleteDialogVisible = false">取消</el-button>
-        <el-button type="danger" @click="doDelete">确认删除</el-button>
+        <span class="dialog-footer">
+          <el-button @click="dialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="saveNote" :loading="saving">确定</el-button>
+        </span>
+      </template>
+    </el-dialog>
+
+    <!-- 查看正文弹窗 -->
+    <el-dialog v-model="viewDialogVisible" title="笔记正文" width="700px">
+      <div class="view-content">
+        <h3>{{ viewNote.title || '无标题' }}</h3>
+        <div class="view-meta">
+          <span>更新于：{{ formatDate(viewNote.updateTime) }}</span>
+          <el-tag v-if="viewNote.tagName" size="small">{{ viewNote.tagName }}</el-tag>
+        </div>
+        <el-divider />
+        <div class="view-body">{{ viewNote.content }}</div>
+      </div>
+      <template #footer>
+        <el-button @click="viewDialogVisible = false">关闭</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import TagSidebar from '@/components/TagSidebar.vue'
-import { getNoteList, deleteNote } from '@/api/note'
+import { getNoteList, deleteNote, addNote, updateNote } from '@/api/note'
 import axios from 'axios'
 
-const router = useRouter()
-const noteList = ref([])
-const currentTag = ref('all')   // 'all', 'uncategorized', 或具体 tagId
-const tagMap = ref({})           // tagId -> tagName
-const deleteDialogVisible = ref(false)
-const deleteTarget = ref(null)
-const currentPage = ref(1)
-const pageSize = 10
+// 查询参数
+const queryParams = reactive({
+  title: '',
+  tagId: null,
+  createDate: []
+})
 
-// 获取所有标签（用于显示标签名）
+// 原始笔记列表
+const allNotes = ref([])
+const tagList = ref([])
+const loading = ref(false)
+const currentPage = ref(1)
+const pageSize = ref(10)
+
+// 获取所有标签
 const fetchTags = async () => {
   try {
     const res = await axios.get('http://localhost:8080/api/tags')
     if (res.data.code === 200) {
-      const tags = res.data.data || []
-      tagMap.value = tags.reduce((map, tag) => { map[tag.id] = tag.name; return map }, {})
+      tagList.value = res.data.data || []
     }
   } catch (err) {
-    console.error('获取标签失败', err)
+    console.error('获取标签列表失败', err)
   }
 }
 
-// 获取笔记列表，同时获取每个笔记的标签
+// 获取笔记列表并补充标签名
 const fetchNotes = async () => {
+  loading.value = true
   try {
     const res = await getNoteList()
     if (res.data.code === 200) {
-      noteList.value = res.data.data || []
-      // 为每个笔记获取其绑定的标签
-      await fetchNoteTags()
+      const notes = res.data.data || []
+      for (const note of notes) {
+        const tagRes = await axios.get('http://localhost:8080/api/tags/target', {
+          params: { targetId: note.id, targetType: 'NOTE' }
+        })
+        if (tagRes.data.code === 200 && tagRes.data.data) {
+          note.tagName = tagRes.data.data.name
+          note.tagId = tagRes.data.data.id
+        } else {
+          note.tagName = null
+          note.tagId = null
+        }
+      }
+      allNotes.value = notes
     } else {
       ElMessage.error(res.data.message || '加载笔记失败')
     }
   } catch (err) {
     ElMessage.error('加载笔记失败，请检查网络')
+  } finally {
+    loading.value = false
   }
 }
 
-// 获取每个笔记的标签
-const noteTagMap = ref({})   // noteId -> tagName
-const fetchNoteTags = async () => {
-  const promises = noteList.value.map(async (note) => {
-    try {
-      const res = await axios.get('http://localhost:8080/api/tags/target', {
-        params: { targetId: note.id, targetType: 'NOTE' }
-      })
-      if (res.data.code === 200 && res.data.data) {
-        noteTagMap.value[note.id] = res.data.data.name
-      } else {
-        noteTagMap.value[note.id] = null
-      }
-    } catch (err) {
-      noteTagMap.value[note.id] = null
-    }
-  })
-  await Promise.all(promises)
-}
-
-// 根据标签筛选
+// 筛选后的笔记
 const filteredNotes = computed(() => {
-  if (currentTag.value === 'all') return noteList.value
-  if (currentTag.value === 'uncategorized') {
-    return noteList.value.filter(n => !noteTagMap.value[n.id])
+  let result = [...allNotes.value]
+  if (queryParams.title) {
+    const keyword = queryParams.title.toLowerCase()
+    result = result.filter(n => n.title?.toLowerCase().includes(keyword))
   }
-  // 具体标签ID
-  return noteList.value.filter(n => noteTagMap.value[n.id] === tagMap.value[currentTag.value])
+  if (queryParams.tagId) {
+    result = result.filter(n => n.tagId === queryParams.tagId)
+  }
+  if (queryParams.createDate && queryParams.createDate.length === 2) {
+    const [start, end] = queryParams.createDate
+    result = result.filter(n => {
+      const date = n.updateTime?.split('T')[0]
+      return date >= start && date <= end
+    })
+  }
+  return result
 })
 
-// 分页后的笔记
+// 分页后数据
 const paginatedNotes = computed(() => {
-  const start = (currentPage.value - 1) * pageSize
-  return filteredNotes.value.slice(start, start + pageSize)
+  const start = (currentPage.value - 1) * pageSize.value
+  return filteredNotes.value.slice(start, start + pageSize.value)
 })
 
-// 标签切换时重置页码
-const onTagChange = () => {
-  currentPage.value = 1
+const handleQuery = () => { currentPage.value = 1 }
+const resetQuery = () => {
+  queryParams.title = ''
+  queryParams.tagId = null
+  queryParams.createDate = []
+  handleQuery()
 }
+const handlePageChange = () => {}
 
 const formatDate = (dateStr) => {
   if (!dateStr) return ''
-  const date = new Date(dateStr)
-  return `${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2,'0')}-${date.getDate().toString().padStart(2,'0')} ${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`
+  const d = new Date(dateStr)
+  return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`
 }
 
-const goToCreate = () => {
-  router.push('/notes/create')
+// 新建/编辑弹窗
+const dialogVisible = ref(false)
+const dialogTitle = ref('新建笔记')
+const dialogType = ref('create')
+const formRef = ref()
+const saving = ref(false)
+const noteForm = reactive({
+  id: null,
+  title: '',
+  content: '',
+  tagId: null
+})
+
+const formRules = {
+  content: [{ required: true, message: '内容不能为空', trigger: 'blur' }]
 }
 
-const editNote = (id) => {
-  router.push(`/notes/edit/${id}`)
+const handleCreate = () => {
+  dialogType.value = 'create'
+  dialogTitle.value = '新建笔记'
+  resetForm()
+  dialogVisible.value = true
 }
 
-const confirmDelete = (note) => {
-  deleteTarget.value = note
-  deleteDialogVisible.value = true
+const handleEdit = (row) => {
+  dialogType.value = 'edit'
+  dialogTitle.value = '编辑笔记'
+  noteForm.id = row.id
+  noteForm.title = row.title || ''
+  noteForm.content = row.content || ''
+  noteForm.tagId = row.tagId
+  dialogVisible.value = true
 }
 
-const doDelete = async () => {
-  if (!deleteTarget.value) return
+const saveNote = async () => {
+  if (!formRef.value) return
+  await formRef.value.validate(async (valid) => {
+    if (!valid) return
+    saving.value = true
+    try {
+      let res
+      if (dialogType.value === 'create') {
+        res = await addNote({
+          title: noteForm.title,
+          content: noteForm.content
+        })
+      } else {
+        res = await updateNote({
+          id: noteForm.id,
+          title: noteForm.title,
+          content: noteForm.content
+        })
+      }
+      if (res.data.code === 200) {
+        const savedNote = res.data.data
+        if (noteForm.tagId) {
+          await axios.post('http://localhost:8080/api/tags/bind', null, {
+            params: {
+              targetId: savedNote.id,
+              targetType: 'NOTE',
+              tagId: noteForm.tagId
+            }
+          })
+        } else if (dialogType.value === 'edit' && noteForm.tagId === null) {
+          await axios.delete('http://localhost:8080/api/tags/clear', {
+            params: { targetId: savedNote.id, targetType: 'NOTE' }
+          })
+        }
+        ElMessage.success(dialogType.value === 'create' ? '新建成功' : '更新成功')
+        dialogVisible.value = false
+        fetchNotes()
+      } else {
+        ElMessage.error(res.data.message || '操作失败')
+      }
+    } catch (err) {
+      console.error('保存笔记失败', err)
+      ElMessage.error('保存失败，请重试')
+    } finally {
+      saving.value = false
+    }
+  })
+}
+
+const resetForm = () => {
+  noteForm.id = null
+  noteForm.title = ''
+  noteForm.content = ''
+  noteForm.tagId = null
+  formRef.value?.clearValidate()
+}
+
+// 删除笔记
+const handleDelete = async (row) => {
   try {
-    const res = await deleteNote(deleteTarget.value.id)
+    const res = await deleteNote(row.id)
     if (res.data.code === 200) {
       ElMessage.success('删除成功')
+      if (paginatedNotes.value.length === 1 && currentPage.value > 1) {
+        currentPage.value -= 1
+      }
       fetchNotes()
     } else {
       ElMessage.error(res.data.message || '删除失败')
     }
   } catch (err) {
     ElMessage.error('删除失败')
-  } finally {
-    deleteDialogVisible.value = false
-    deleteTarget.value = null
   }
+}
+
+// 查看正文
+const viewDialogVisible = ref(false)
+const viewNote = ref({})
+const handleView = (row) => {
+  viewNote.value = row
+  viewDialogVisible.value = true
 }
 
 onMounted(() => {
@@ -185,56 +368,60 @@ onMounted(() => {
 })
 </script>
 
-<style scoped>
-.note-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 20px;
+<style scoped lang="scss">
+.note-view-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
 }
-.note-header {
-  flex: 1;
+
+.page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
-  width: 100%;
 }
-.note-sidebar {
-  width: 220px;
-  flex-shrink: 0;
+
+.page-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: #1a1a1a;
 }
-.note-list {
-  flex: 1;
-  min-width: 0;
+
+.filter-card {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  margin-bottom: 20px;
 }
-.note-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.note-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.note-title {
-  font-weight: bold;
-  font-size: 1.1rem;
-}
-.note-content-preview {
-  color: #666;
-  margin-bottom: 12px;
-}
-.note-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.8rem;
-  color: #999;
-}
-.pagination-wrapper {
+
+.pagination {
   margin-top: 20px;
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
+}
+
+.muted {
+  color: #909399;
+  font-size: 12px;
+}
+
+.view-content {
+  h3 {
+    margin-top: 0;
+  }
+  .view-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #909399;
+    font-size: 12px;
+  }
+  .view-body {
+    white-space: pre-wrap;
+    line-height: 1.6;
+  }
 }
 </style>
