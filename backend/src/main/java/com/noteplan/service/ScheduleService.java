@@ -30,7 +30,13 @@ public class ScheduleService {
     private NoteTagMapper noteTagMapper;
 
     public List<Schedule> getAllSchedules() {
-        return scheduleMapper.findAll();
+        List<Schedule> schedules = scheduleMapper.findAll();
+        // 填充 tagId
+        for (Schedule schedule : schedules) {
+            Long tagId = noteTagMapper.selectTagIdByTarget(schedule.getId(), "SCHEDULE");
+            schedule.setTagId(tagId);
+        }
+        return schedules;
     }
 
     // 根据ID列表获取日程
@@ -38,7 +44,13 @@ public class ScheduleService {
         if (ids == null || ids.isEmpty()) {
             return Collections.emptyList();
         }
-        return scheduleMapper.findByIds(ids);
+        List<Schedule> schedules = scheduleMapper.findByIds(ids);
+        // 填充 tagId
+        for (Schedule schedule : schedules) {
+            Long tagId = noteTagMapper.selectTagIdByTarget(schedule.getId(), "SCHEDULE");
+            schedule.setTagId(tagId);
+        }
+        return schedules;
     }
 
     @Transactional
@@ -88,6 +100,7 @@ public class ScheduleService {
             LocalDateTime newStartTime = schedule.getStartTime() != null
                     ? calculateNextTime(schedule.getStartTime(), schedule.getRepeatRule())
                     : null;
+
             scheduleMapper.updateTime(id, newStartTime, newEndTime);
         }
     }
@@ -98,14 +111,37 @@ public class ScheduleService {
             case "weekly": return current.plusWeeks(1);
             case "monthly": return current.plusMonths(1);
             case "yearly": return current.plusYears(1);
-            case "workday": return current.plusDays(1);
-            case "holiday": return current.plusDays(1);
+            case "workday": return getNextWorkday(current);
+            case "holiday": return getNextHoliday(current);
             default: return current;
         }
     }
 
+    // 获取下一个工作日（周一至周五）
+    private LocalDateTime getNextWorkday(LocalDateTime date) {
+        LocalDateTime next = date.plusDays(1);
+        while (next.getDayOfWeek().getValue() >= 6) { // 周六=6，周日=7
+            next = next.plusDays(1);
+        }
+        return next;
+    }
+
+    // 获取下一个节假日（周六或周日）
+    private LocalDateTime getNextHoliday(LocalDateTime date) {
+        LocalDateTime next = date.plusDays(1);
+        while (next.getDayOfWeek().getValue() < 6) { // 周一到周五
+            next = next.plusDays(1);
+        }
+        return next;
+    }
+
     public Schedule getById(Long id) {
-        return scheduleMapper.findById(id);
+        Schedule schedule = scheduleMapper.findById(id);
+        if (schedule != null) {
+            Long tagId = noteTagMapper.selectTagIdByTarget(id, "SCHEDULE");
+            schedule.setTagId(tagId);
+        }
+        return schedule;
     }
 
     @Transactional

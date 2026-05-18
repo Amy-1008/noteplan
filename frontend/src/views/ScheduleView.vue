@@ -26,8 +26,23 @@
                 @click="goToDetail(schedule.id)"
             >
               <el-checkbox v-model="schedule.completed" @click.stop="toggleComplete(schedule, $event)"/>
-              <span class="schedule-title">{{ schedule.title }}</span>
-              <span class="schedule-date">{{ formatScheduleTime(schedule) }}</span>
+              <div class="schedule-content">
+                <span class="schedule-title">{{ schedule.title }}</span>
+              </div>
+              <div class="schedule-right">
+                <el-tag
+                    v-if="schedule.tagId && getTagName(schedule.tagId)"
+                    size="small"
+                    :class="schedule.rank === 1 ? 'tag-important' : 'tag-normal'"
+                    effect="plain"
+                >
+                  {{ getTagName(schedule.tagId) }}
+                </el-tag>
+                <div v-else class="tag-placeholder"></div>
+                <div class="schedule-time" :title="getFullDateTime(schedule)">
+                  {{ formatScheduleTime(schedule) }}
+                </div>
+              </div>
             </div>
           </div>
           <div class="group-pagination">
@@ -70,8 +85,23 @@
                 @click="goToDetail(schedule.id)"
             >
               <el-checkbox v-model="schedule.completed" @click.stop="toggleComplete(schedule, $event)"/>
-              <span class="schedule-title">{{ schedule.title }}</span>
-              <span class="schedule-date">{{ formatScheduleTime(schedule) }}</span>
+              <div class="schedule-content">
+                <span class="schedule-title">{{ schedule.title }}</span>
+              </div>
+              <div class="schedule-right">
+                <el-tag
+                    v-if="schedule.tagId && getTagName(schedule.tagId)"
+                    size="small"
+                    :class="schedule.rank === 1 ? 'tag-important' : 'tag-normal'"
+                    effect="plain"
+                >
+                  {{ getTagName(schedule.tagId) }}
+                </el-tag>
+                <div v-else class="tag-placeholder"></div>
+                <div class="schedule-time" :title="getFullDateTime(schedule)">
+                  {{ formatScheduleTime(schedule) }}
+                </div>
+              </div>
             </div>
           </div>
           <div class="group-pagination">
@@ -113,9 +143,24 @@
                 class="schedule-item normal"
                 @click="goToDetail(schedule.id)"
             >
-              <el-checkbox v-model="schedule.completed" @click.stop="toggleComplete(schedule, $event)" />
-              <span class="schedule-title">{{ schedule.title }}</span>
-              <span class="schedule-date">{{ formatScheduleTime(schedule) }}</span>
+              <el-checkbox v-model="schedule.completed" @click.stop="toggleComplete(schedule, $event)"/>
+              <div class="schedule-content">
+                <span class="schedule-title">{{ schedule.title }}</span>
+              </div>
+              <div class="schedule-right">
+                <el-tag
+                    v-if="schedule.tagId && getTagName(schedule.tagId)"
+                    size="small"
+                    :class="schedule.rank === 1 ? 'tag-important' : 'tag-normal'"
+                    effect="plain"
+                >
+                  {{ getTagName(schedule.tagId) }}
+                </el-tag>
+                <div v-else class="tag-placeholder"></div>
+                <div class="schedule-time" :title="getFullDateTime(schedule)">
+                  {{ formatScheduleTime(schedule) }}
+                </div>
+              </div>
             </div>
           </div>
           <div class="group-pagination">
@@ -157,12 +202,24 @@
                 class="schedule-item completed"
                 @click="goToDetail(schedule.id)"
             >
-              <el-checkbox
-                  v-model="schedule.completed"
-                  @click.stop="toggleComplete(schedule, $event)"
-              />
-              <span class="schedule-title">{{ schedule.title }}</span>
-              <span class="schedule-date">{{ formatScheduleTime(schedule) }}</span>
+              <el-checkbox v-model="schedule.completed" @click.stop="toggleComplete(schedule, $event)"/>
+              <div class="schedule-content">
+                <span class="schedule-title">{{ schedule.title }}</span>
+              </div>
+              <div class="schedule-right">
+                <el-tag
+                    v-if="schedule.tagId && getTagName(schedule.tagId)"
+                    size="small"
+                    :class="schedule.rank === 1 ? 'tag-important' : 'tag-normal'"
+                    effect="plain"
+                >
+                  {{ getTagName(schedule.tagId) }}
+                </el-tag>
+                <div v-else class="tag-placeholder"></div>
+                <div class="schedule-time" :title="getFullDateTime(schedule)">
+                  {{ formatScheduleTime(schedule) }}
+                </div>
+              </div>
             </div>
           </div>
           <div class="group-pagination">
@@ -456,6 +513,34 @@ const paginatedGroups = computed(() => {
 })
 
 const noData = computed(() => scheduleList.value.length === 0)
+
+// 获取标签名称
+const getTagName = (tagId) => {
+  if (!tagId) return null
+  const tag = tagList.value.find(t => t.id === tagId)
+  return tag ? tag.name : null
+}
+
+// 获取标签样式类型（根据 rank 决定颜色）
+const getTagType = (rank) => {
+  // rank: 0普通 1重要
+  return rank === 1 ? 'danger' : 'info'
+}
+
+// 获取完整的日期时间（用于悬浮提示）
+const getFullDateTime = (schedule) => {
+  if (!schedule.endTime) return ''
+
+  const formatFull = (dateStr) => {
+    const date = new Date(dateStr)
+    return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`
+  }
+
+  if (!schedule.startTime) {
+    return formatFull(schedule.endTime)
+  }
+  return `${formatFull(schedule.startTime)} ~ ${formatFull(schedule.endTime)}`
+}
 
 // ---------- 事件 ----------
 const onTagChange = (tagId) => {
@@ -783,9 +868,12 @@ onMounted(() => {
 .schedule-item {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 12px 16px;
   border-bottom: 1px solid #ebeef5;
   transition: background 0.2s;
+  gap: 12px;
+  cursor: pointer;
 }
 
 .schedule-item:last-child {
@@ -796,16 +884,67 @@ onMounted(() => {
   background-color: #f5f7fa;
 }
 
-.schedule-title {
+/* 左侧：标题区域 */
+.schedule-content {
   flex: 1;
-  margin-left: 12px;
-  font-size: 14px;
+  min-width: 0;
 }
 
-.schedule-date {
-  font-size: 13px;
-  color: #409eff;
+.schedule-title {
+  font-size: 14px;
   font-weight: 500;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 右侧：标签+时间区域 - 固定宽度 100px */
+.schedule-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 6px;
+  flex-shrink: 0;
+  width: 100px;  /* 固定宽度，确保位置稳定 */
+}
+
+/* 标签样式 - 根据 rank 区分颜色 */
+.schedule-tag {
+  font-size: 12px;
+  height: 22px;
+  line-height: 20px;
+  margin: 0;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* rank=0 普通标签（灰色） */
+.schedule-tag.tag-normal {
+  background-color: #f4f4f5;
+  border-color: #e9e9eb;
+  color: #909399;
+}
+
+/* rank=1 重要标签（红色） */
+.schedule-tag.tag-important {
+  background-color: #fef0f0;
+  border-color: #fbc4c4;
+  color: #f56c6c;
+}
+
+.schedule-time {
+  font-size: 12px;
+  color: #909399;
+  cursor: default;
+  white-space: nowrap;
+}
+
+.schedule-time:hover {
+  color: #409eff;
 }
 
 /* 状态样式 */
@@ -846,5 +985,10 @@ onMounted(() => {
   gap: 8px;
   font-size: 13px;
   color: #606266;
+}
+
+/* 占位符，没有标签时保持高度 */
+.tag-placeholder {
+  height: 22px;
 }
 </style>
