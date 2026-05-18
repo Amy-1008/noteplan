@@ -14,27 +14,26 @@
       </div>
     </div>
 
-    <!-- 统计卡片 -->
-    <div class="stats-row">
-      <div class="stat-card">
-        <div class="stat-number">{{ totalEvents }}</div>
-        <div class="stat-label">总事件</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-number">{{ totalSchedules }}</div>
-        <div class="stat-label">日程</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-number">{{ totalNotes }}</div>
-        <div class="stat-label">备忘录</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-number">{{ markedDays }}</div>
-        <div class="stat-label">有记录</div>
-      </div>
+    <!-- 视图切换 -->
+    <div class="view-switch">
+      <button
+          class="view-btn"
+          :class="{ active: viewMode === 'month' }"
+          @click="switchView('month')"
+      >月视图</button>
+      <button
+          class="view-btn"
+          :class="{ active: viewMode === 'week' }"
+          @click="switchView('week')"
+      >周视图</button>
+      <button
+          class="view-btn"
+          :class="{ active: viewMode === 'day' }"
+          @click="switchView('day')"
+      >日视图</button>
     </div>
 
-    <!-- 图例（放在统计卡片下面） -->
+    <!-- 图例 -->
     <div class="legend">
       <div class="legend-item">
         <span class="legend-badge schedule-badge"></span>
@@ -50,13 +49,13 @@
       </div>
     </div>
 
-    <!-- 星期标题 -->
-    <div class="weekdays">
+    <!-- 星期标题（月视图和周视图都显示） -->
+    <div class="weekdays" v-if="viewMode !== 'day'">
       <div v-for="week in weekdays" :key="week" class="weekday">{{ week }}</div>
     </div>
 
-    <!-- 日历网格 -->
-    <div class="calendar-grid-wrapper">
+    <!-- 月视图 -->
+    <div class="calendar-grid-wrapper" v-if="viewMode === 'month'">
       <div class="calendar-grid">
         <div
             v-for="(day, idx) in calendarDays"
@@ -85,6 +84,56 @@
       </div>
     </div>
 
+    <!-- 周视图 -->
+    <div class="calendar-grid-wrapper" v-if="viewMode === 'week'">
+      <div class="calendar-grid">
+        <div
+            v-for="(day, idx) in weekDays"
+            :key="idx"
+            class="calendar-day"
+            :class="{
+            'today': day.isToday
+          }"
+            @click="openDayDetail(day)"
+        >
+          <div class="day-header">
+            <span class="day-number">{{ day.dayNum }}</span>
+            <span class="weekday-name">{{ getShortWeekday(day.weekday) }}</span>
+            <span v-if="day.isToday" class="today-badge-mark">今天</span>
+          </div>
+          <div class="day-events">
+            <div v-for="event in day.events.slice(0, 3)" :key="event.id" class="event-item" :class="event.type">
+              <span class="event-type">{{ event.type === 'schedule' ? '📅' : '📝' }}</span>
+              <span class="event-title">{{ event.title }}</span>
+            </div>
+            <div v-if="day.eventCount > 3" class="more-events">
+              +{{ day.eventCount - 3 }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 日视图 -->
+    <div class="day-view-wrapper" v-if="viewMode === 'day'">
+      <div class="day-view-header">
+        <h2>{{ currentDayData.dateTitle }}</h2>
+        <div class="day-view-weekday">{{ currentDayData.weekday }}</div>
+      </div>
+      <div class="day-events-list">
+        <div v-if="currentDayData.events.length === 0" class="empty-day">
+          <div class="empty-icon">📭</div>
+          <div>这一天没有安排</div>
+        </div>
+        <div v-for="event in currentDayData.events" :key="event.id" class="day-event-item" :class="event.type">
+          <div class="day-event-type">{{ event.type === 'schedule' ? '📅 日程' : '📝 备忘录' }}</div>
+          <div class="day-event-title">{{ event.title }}</div>
+          <div class="day-event-time" v-if="event.time">{{ event.time }}</div>
+          <div class="day-event-content" v-if="event.content">{{ event.content }}</div>
+        </div>
+      </div>
+    </div>
+
     <!-- 详情弹窗 -->
     <el-drawer
         v-model="drawerVisible"
@@ -98,43 +147,47 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import dayjs from 'dayjs';
 import { getMonthData } from '@/api/calendar';
 import DailyDetail from '@/components/DailyDetail.vue';
 
 const currentYear = ref(dayjs().year());
 const currentMonth = ref(dayjs().month() + 1);
+const viewMode = ref('month'); // month, week, day
 const calendarDays = ref([]);
+const weekDays = ref([]);
+const currentDayData = ref({ dateTitle: '', weekday: '', events: [] });
 const drawerVisible = ref(false);
 const selectedDate = ref('');
 const selectedDateTitle = ref('');
+const allEvents = ref({});
 
-const totalEvents = ref(0);
-const totalSchedules = ref(0);
-const totalNotes = ref(0);
-const markedDays = ref(0);
+const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
 
-const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+const getShortWeekday = (weekday) => {
+  const short = ['日', '一', '二', '三', '四', '五', '六'];
+  return short[weekday];
+};
 
 const loadMonthData = async () => {
   try {
     const res = await getMonthData(currentYear.value, currentMonth.value);
-    const data = res.data;
-
-    totalEvents.value = data.totalEvents || 0;
-    totalSchedules.value = data.totalSchedules || 0;
-    totalNotes.value = data.totalNotes || 0;
-    markedDays.value = data.markedDays || 0;
-
-    generateCalendar(data.events || {});
+    allEvents.value = res.data.events || {};
+    generateCalendar();
+    if (viewMode.value === 'week') {
+      generateWeekView();
+    } else if (viewMode.value === 'day') {
+      generateDayView();
+    }
   } catch (error) {
     console.error('加载失败', error);
-    generateCalendar({});
+    allEvents.value = {};
+    generateCalendar();
   }
 };
 
-const generateCalendar = (eventsMap) => {
+const generateCalendar = () => {
   const firstDay = dayjs(`${currentYear.value}-${currentMonth.value}-01`);
   const startDay = firstDay.startOf('month').startOf('week');
   const days = [];
@@ -143,7 +196,7 @@ const generateCalendar = (eventsMap) => {
     const currentDate = startDay.add(i, 'day');
     const isCurrentMonth = currentDate.month() + 1 === currentMonth.value;
     const dateKey = currentDate.format('YYYY-MM-DD');
-    const dayEvents = eventsMap[dateKey] || [];
+    const dayEvents = allEvents.value[dateKey] || [];
 
     days.push({
       date: dateKey,
@@ -158,8 +211,51 @@ const generateCalendar = (eventsMap) => {
   calendarDays.value = days;
 };
 
+const generateWeekView = () => {
+  const today = dayjs();
+  const startOfWeek = today.startOf('week');
+  const days = [];
+
+  for (let i = 0; i < 7; i++) {
+    const currentDate = startOfWeek.add(i, 'day');
+    const dateKey = currentDate.format('YYYY-MM-DD');
+    const dayEvents = allEvents.value[dateKey] || [];
+
+    days.push({
+      date: dateKey,
+      dayNum: currentDate.date(),
+      weekday: currentDate.day(),
+      isToday: currentDate.isSame(dayjs(), 'day'),
+      events: dayEvents,
+      eventCount: dayEvents.length
+    });
+  }
+
+  weekDays.value = days;
+};
+
+const generateDayView = () => {
+  const currentDate = dayjs(`${currentYear.value}-${currentMonth.value}-01`);
+  const dateKey = currentDate.format('YYYY-MM-DD');
+  const dayEvents = allEvents.value[dateKey] || [];
+
+  currentDayData.value = {
+    dateTitle: currentDate.format('YYYY年MM月DD日'),
+    weekday: getShortWeekday(currentDate.day()),
+    events: dayEvents
+  };
+};
+
+const switchView = (view) => {
+  viewMode.value = view;
+  if (view === 'week') {
+    generateWeekView();
+  } else if (view === 'day') {
+    generateDayView();
+  }
+};
+
 const openDayDetail = (day) => {
-  if (day.isOtherMonth) return;
   selectedDate.value = day.date;
   selectedDateTitle.value = dayjs(day.date).format('YYYY年MM月DD日 (dddd)');
   drawerVisible.value = true;
@@ -189,6 +285,11 @@ const today = () => {
   currentYear.value = dayjs().year();
   currentMonth.value = dayjs().month() + 1;
   loadMonthData();
+  if (viewMode.value === 'week') {
+    generateWeekView();
+  } else if (viewMode.value === 'day') {
+    generateDayView();
+  }
 };
 
 onMounted(() => {
@@ -280,36 +381,40 @@ onMounted(() => {
   color: white;
 }
 
-/* 统计卡片 */
-.stats-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+/* 视图切换 */
+.view-switch {
+  display: flex;
+  gap: 10px;
   margin-bottom: 20px;
+  background: rgba(255, 255, 255, 0.4);
+  padding: 6px;
+  border-radius: 40px;
+  width: fit-content;
 }
 
-.stat-card {
-  background: white;
-  padding: 16px;
-  border-radius: 16px;
-  text-align: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-
-.stat-number {
-  font-size: 28px;
-  font-weight: 600;
+.view-btn {
+  padding: 8px 24px;
+  border: none;
+  background: transparent;
+  border-radius: 30px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
   color: #2C6B8F;
-  line-height: 1;
+  transition: all 0.2s;
 }
 
-.stat-label {
-  font-size: 12px;
-  color: #8BB3CA;
-  margin-top: 6px;
+.view-btn:hover {
+  background: rgba(255, 255, 255, 0.6);
 }
 
-/* 图例 - 放在上面 */
+.view-btn.active {
+  background: white;
+  color: #4A90D9;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* 图例 */
 .legend {
   display: flex;
   justify-content: flex-start;
@@ -368,7 +473,7 @@ onMounted(() => {
   border-radius: 10px;
 }
 
-/* 日历网格容器 - 限制宽度 */
+/* 日历网格容器 */
 .calendar-grid-wrapper {
   background: rgba(255, 255, 255, 0.4);
   border-radius: 20px;
@@ -423,6 +528,12 @@ onMounted(() => {
 .today .day-number {
   color: #4A90D9;
   font-weight: 700;
+}
+
+.weekday-name {
+  font-size: 11px;
+  color: #8BB3CA;
+  margin-left: 4px;
 }
 
 .today-badge-mark {
@@ -488,6 +599,89 @@ onMounted(() => {
   padding: 2px 6px;
 }
 
+/* 日视图样式 */
+.day-view-wrapper {
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 20px;
+  padding: 24px;
+}
+
+.day-view-header {
+  text-align: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.6);
+}
+
+.day-view-header h2 {
+  margin: 0 0 8px 0;
+  font-size: 24px;
+  color: #2C6B8F;
+}
+
+.day-view-weekday {
+  font-size: 14px;
+  color: #5BA3C7;
+}
+
+.day-events-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.day-event-item {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.2s;
+}
+
+.day-event-item.schedule {
+  border-left: 4px solid #E8A735;
+}
+
+.day-event-item.note {
+  border-left: 4px solid #52C41A;
+}
+
+.day-event-type {
+  font-size: 11px;
+  color: #8BB3CA;
+  margin-bottom: 8px;
+}
+
+.day-event-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #2C6B8F;
+  margin-bottom: 8px;
+}
+
+.day-event-time {
+  font-size: 12px;
+  color: #E8A735;
+  margin-bottom: 6px;
+}
+
+.day-event-content {
+  font-size: 13px;
+  color: #5A7E9A;
+  line-height: 1.5;
+}
+
+.empty-day {
+  text-align: center;
+  padding: 60px 20px;
+  color: #8BB3CA;
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
 /* 响应式 */
 @media (max-width: 900px) {
   .calendar-page {
@@ -510,25 +704,9 @@ onMounted(() => {
   .day-number {
     font-size: 14px;
   }
-
-  .event-title {
-    font-size: 9px;
-  }
 }
 
 @media (max-width: 700px) {
-  .stats-row {
-    gap: 10px;
-  }
-
-  .stat-card {
-    padding: 12px;
-  }
-
-  .stat-number {
-    font-size: 22px;
-  }
-
   .calendar-day {
     min-height: 70px;
   }
@@ -541,8 +719,13 @@ onMounted(() => {
     display: none;
   }
 
-  .legend {
+  .view-switch {
     margin-bottom: 12px;
+  }
+
+  .view-btn {
+    padding: 6px 16px;
+    font-size: 12px;
   }
 }
 </style>
