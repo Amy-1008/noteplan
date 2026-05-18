@@ -8,7 +8,21 @@
       </div>
       <div class="month-section">
         <button class="month-btn" @click="prevMonth">‹</button>
-        <span class="month-text">{{ currentYear }}年 {{ currentMonth }}月</span>
+
+        <!-- 年月下拉菜单 -->
+        <div class="year-month-selector">
+          <select v-model="selectedYear" @change="onYearChange" class="year-select">
+            <option v-for="year in yearOptions" :key="year" :value="year">
+              {{ year }}年
+            </option>
+          </select>
+          <select v-model="selectedMonth" @change="onMonthChange" class="month-select">
+            <option v-for="(month, index) in monthOptions" :key="index" :value="index + 1">
+              {{ month }}月
+            </option>
+          </select>
+        </div>
+
         <button class="month-btn" @click="nextMonth">›</button>
         <button class="today-btn" @click="today">今天</button>
       </div>
@@ -147,14 +161,16 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted } from 'vue';
 import dayjs from 'dayjs';
 import { getMonthData } from '@/api/calendar';
 import DailyDetail from '@/components/DailyDetail.vue';
 
 const currentYear = ref(dayjs().year());
 const currentMonth = ref(dayjs().month() + 1);
-const viewMode = ref('month'); // month, week, day
+const selectedYear = ref(dayjs().year());
+const selectedMonth = ref(dayjs().month() + 1);
+const viewMode = ref('month');
 const calendarDays = ref([]);
 const weekDays = ref([]);
 const currentDayData = ref({ dateTitle: '', weekday: '', events: [] });
@@ -164,6 +180,13 @@ const selectedDateTitle = ref('');
 const allEvents = ref({});
 
 const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+const monthOptions = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+const yearOptions = ref([]);
+
+// 生成年份选项（当前年份前后10年）
+for (let i = dayjs().year() - 10; i <= dayjs().year() + 10; i++) {
+  yearOptions.value.push(i);
+}
 
 const getShortWeekday = (weekday) => {
   const short = ['日', '一', '二', '三', '四', '五', '六'];
@@ -268,6 +291,8 @@ const prevMonth = () => {
   } else {
     currentMonth.value--;
   }
+  selectedYear.value = currentYear.value;
+  selectedMonth.value = currentMonth.value;
   loadMonthData();
 };
 
@@ -278,12 +303,26 @@ const nextMonth = () => {
   } else {
     currentMonth.value++;
   }
+  selectedYear.value = currentYear.value;
+  selectedMonth.value = currentMonth.value;
+  loadMonthData();
+};
+
+const onYearChange = () => {
+  currentYear.value = selectedYear.value;
+  loadMonthData();
+};
+
+const onMonthChange = () => {
+  currentMonth.value = selectedMonth.value;
   loadMonthData();
 };
 
 const today = () => {
   currentYear.value = dayjs().year();
   currentMonth.value = dayjs().month() + 1;
+  selectedYear.value = currentYear.value;
+  selectedMonth.value = currentMonth.value;
   loadMonthData();
   if (viewMode.value === 'week') {
     generateWeekView();
@@ -355,12 +394,30 @@ onMounted(() => {
   color: white;
 }
 
-.month-text {
-  font-size: 20px;
+/* 年月下拉菜单 */
+.year-month-selector {
+  display: flex;
+  gap: 8px;
+  background: white;
+  padding: 4px 12px;
+  border-radius: 30px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.year-select, .month-select {
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  font-size: 16px;
   font-weight: 500;
   color: #2C6B8F;
-  min-width: 130px;
+  cursor: pointer;
+  outline: none;
   text-align: center;
+}
+
+.year-select:hover, .month-select:hover {
+  color: #4A90D9;
 }
 
 .today-btn {
@@ -726,6 +783,15 @@ onMounted(() => {
   .view-btn {
     padding: 6px 16px;
     font-size: 12px;
+  }
+
+  .year-month-selector {
+    padding: 2px 8px;
+  }
+
+  .year-select, .month-select {
+    font-size: 12px;
+    padding: 4px 4px;
   }
 }
 </style>
