@@ -26,7 +26,7 @@ CREATE TABLE note (
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     status TINYINT NOT NULL DEFAULT 0 COMMENT '0正常 1已删除',
-    rank INT NOT NULL DEFAULT 0 COMMENT '扩展：排序/重要性',
+    `rank` INT NOT NULL DEFAULT 0 COMMENT '扩展：排序/重要性',
     KEY idx_note_update_time (update_time),
     KEY idx_note_status (status),
     KEY idx_note_title (title(191))
@@ -51,7 +51,7 @@ CREATE TABLE schedule (
     completed TINYINT NOT NULL DEFAULT 0 COMMENT '0未完成 1完成',
     status TINYINT NOT NULL DEFAULT 0 COMMENT '0正常 1已删除',
     linked_note_id BIGINT DEFAULT NULL,
-    rank INT NOT NULL DEFAULT 0 COMMENT '扩展字段',
+    `rank` INT NOT NULL DEFAULT 0 COMMENT '扩展字段',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     KEY idx_schedule_start (start_time),

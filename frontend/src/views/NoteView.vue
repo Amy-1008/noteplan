@@ -66,11 +66,12 @@
         <template #default="{ row }">
           <el-button type="primary" link size="small" @click="handleView(row)">查看正文</el-button>
           <el-button type="success" link size="small" @click="handleEdit(row)">修改</el-button>
-          <el-popconfirm title="确认删除该笔记？删除后可在日程中解除关联，可恢复。" @confirm="handleDelete(row)">
+          <!--<el-popconfirm title="确认删除该笔记？删除后可在日程中解除关联，可恢复。" @confirm="handleDelete(row)">
             <template #reference>
               <el-button type="danger" link size="small">删除</el-button>
             </template>
-          </el-popconfirm>
+          </el-popconfirm>-->
+          <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>

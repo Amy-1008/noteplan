@@ -58,6 +58,7 @@ public class NoteServiceImpl implements NoteService {
         int nextVersionNo = noteMapper.getMaxVersionNo(note.getId()) + 1;
         saveVersion(note.getId(), oldNote.getContent(), nextVersionNo);
 
+        note.setRank(oldNote.getRank());
         note.setUpdateTime(LocalDateTime.now());
         noteMapper.update(note);
 
