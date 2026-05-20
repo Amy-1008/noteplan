@@ -18,7 +18,6 @@
         />
       </el-form-item>
 
-      <!-- 时间类型选择 -->
       <el-form-item label="时间类型" prop="timeType">
         <el-radio-group v-model="formData.timeType">
           <el-radio value="point">时间点</el-radio>
@@ -26,7 +25,6 @@
         </el-radio-group>
       </el-form-item>
 
-      <!-- 时间点模式 -->
       <el-form-item v-if="formData.timeType === 'point'" label="时间" prop="endTime">
         <el-date-picker
             v-model="formData.endTime"
@@ -38,7 +36,6 @@
         />
       </el-form-item>
 
-      <!-- 时间段模式 -->
       <template v-else>
         <el-form-item label="开始时间" prop="startTime">
           <el-date-picker
@@ -85,7 +82,6 @@
         />
       </el-form-item>
 
-
       <el-form-item label="标签" prop="tagId">
         <TagSelector
             v-model="formData.tagId"
@@ -93,10 +89,8 @@
         />
       </el-form-item>
 
-
       <el-form-item label="关联笔记">
         <div class="notes-display">
-          <!-- 显示已选中的笔记（胶囊形式） -->
           <div class="notes-list">
             <el-tag
                 v-for="note in selectedNotes"
@@ -105,42 +99,105 @@
                 @close="removeNote(note.id)"
                 type="success"
                 effect="plain"
-                style="margin-right: 8px; margin-bottom: 4px;"
+                class="note-tag clickable"
+                @click="goToNoteDetail(note.id)"
             >
               {{ note.title }}
             </el-tag>
             <span v-if="selectedNotes.length === 0" class="placeholder-text">未关联笔记</span>
           </div>
-
-          <!-- 选择笔记按钮/下拉框 -->
-          <el-select
-              v-model="pendingNoteId"
-              placeholder="选择关联笔记"
-              clearable
-              size="small"
-              style="width: 150px; margin-top: 8px;"
-              @change="addNote"
-          >
-            <el-option
-                v-for="note in availableNotes"
-                :key="note.id"
-                :label="note.title"
-                :value="note.id"
-            />
-          </el-select>
+          <el-button size="small" @click="openNoteSelector">
+            <el-icon><Plus /></el-icon> 选择笔记
+          </el-button>
         </div>
       </el-form-item>
     </el-form>
+
+    <!-- 笔记选择器弹窗 -->
+    <el-dialog
+        v-model="noteDialogVisible"
+        title="选择关联笔记"
+        width="600px"
+        append-to-body
+    >
+      <div class="note-selector">
+        <div class="note-search-bar">
+          <el-input
+              v-model="noteSearchKeyword"
+              placeholder="按标题搜索"
+              clearable
+              prefix-icon="Search"
+              style="width: 200px; margin-right: 12px;"
+          />
+          <el-select
+              v-model="noteFilterTagId"
+              placeholder="按标签筛选"
+              clearable
+              style="width: 150px"
+          >
+            <el-option
+                v-for="tag in tagList"
+                :key="tag.id"
+                :label="tag.name"
+                :value="tag.id"
+            />
+          </el-select>
+        </div>
+        <div class="note-list-selector">
+          <div
+              v-for="note in filteredNoteList"
+              :key="note.id"
+              class="note-item-selector"
+              @click="toggleNoteSelection(note.id)"
+          >
+            <el-checkbox :model-value="tempSelectedNoteIds.includes(note.id)" @click.stop />
+            <div class="note-info">
+              <span class="note-title">{{ note.title || '无标题' }}</span>
+              <span v-if="note.tagName" class="note-tag-name">#{{ note.tagName }}</span>
+            </div>
+            <el-button text @click.stop="viewNoteDetail(note)">
+              <el-icon><Document /></el-icon> 查看
+            </el-button>
+          </div>
+          <el-empty v-if="filteredNoteList.length === 0" description="暂无笔记" />
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="noteDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="confirmNoteSelection">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 笔记详情查看弹窗 -->
+    <el-dialog
+        v-model="viewNoteDialogVisible"
+        :title="currentViewNote?.title || '笔记详情'"
+        width="500px"
+        append-to-body
+    >
+      <div class="note-view-content">
+        <div class="note-view-meta">
+          <span>更新于：{{ formatDate(currentViewNote?.updateTime) }}</span>
+          <el-tag v-if="currentViewNote?.tagName" size="small">{{ currentViewNote.tagName }}</el-tag>
+        </div>
+        <el-divider />
+        <div class="note-view-body">{{ currentViewNote?.content }}</div>
+      </div>
+      <template #footer>
+        <el-button @click="viewNoteDialogVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft } from '@element-plus/icons-vue'
+import { ArrowLeft, Plus, Document, Search } from '@element-plus/icons-vue'
 import axios from 'axios'
 import TagSelector from "@/components/TagSelector.vue";
+import { onBeforeRouteLeave } from 'vue-router'
 
 const route = useRoute()
 const router = useRouter()
@@ -191,14 +248,33 @@ const formRules = {
 }
 
 // ---------- 标签和笔记显示相关 ----------
-const selectedTag = ref(null)        // 当前选中的标签对象
-const selectedNotes = ref([])        // 当前选中的笔记对象列表
-const pendingNoteId = ref(null)      // 临时选中的笔记ID
+const selectedTag = ref(null)
+const selectedNotes = ref([])
 
-// 可选的笔记列表（排除已选中的）
-const availableNotes = computed(() => {
-  const selectedIds = selectedNotes.value.map(n => n.id)
-  return allNotes.value.filter(n => !selectedIds.includes(n.id))
+// ---------- 笔记选择器相关 ----------
+const noteSearchKeyword = ref('')
+const noteFilterTagId = ref(null)
+const noteDialogVisible = ref(false)
+const tempSelectedNoteIds = ref([])
+const viewNoteDialogVisible = ref(false)
+const currentViewNote = ref(null)
+
+// 过滤后的笔记列表
+const filteredNoteList = computed(() => {
+  let result = [...allNotes.value]
+
+  if (noteSearchKeyword.value.trim()) {
+    const keyword = noteSearchKeyword.value.trim().toLowerCase()
+    result = result.filter(note =>
+        note.title?.toLowerCase().includes(keyword)
+    )
+  }
+
+  if (noteFilterTagId.value) {
+    result = result.filter(note => note.tagId === noteFilterTagId.value)
+  }
+
+  return result
 })
 
 // 根据标签ID获取标签对象
@@ -211,39 +287,48 @@ const getNotesByIds = (noteIds) => {
   return allNotes.value.filter(n => noteIds.includes(n.id))
 }
 
-// 标签被选中时
-const onTagSelected = (tagId) => {
-  if (tagId) {
-    selectedTag.value = getTagById(tagId)
-    formData.value.tagId = tagId
+// 切换笔记选中状态
+const toggleNoteSelection = (noteId) => {
+  const index = tempSelectedNoteIds.value.indexOf(noteId)
+  if (index > -1) {
+    tempSelectedNoteIds.value.splice(index, 1)
   } else {
-    selectedTag.value = null
-    formData.value.tagId = null
+    tempSelectedNoteIds.value.push(noteId)
   }
 }
 
-// 移除标签
-const removeTag = () => {
-  selectedTag.value = null
-  formData.value.tagId = null
+// 打开笔记选择器
+const openNoteSelector = () => {
+  tempSelectedNoteIds.value = [...formData.value.noteIds]
+  noteSearchKeyword.value = ''
+  noteFilterTagId.value = null
+  noteDialogVisible.value = true
 }
 
-// 添加笔记
-const addNote = (noteId) => {
-  if (noteId) {
-    const note = allNotes.value.find(n => n.id === noteId)
-    if (note && !selectedNotes.value.find(n => n.id === noteId)) {
-      selectedNotes.value.push(note)
-      formData.value.noteIds = selectedNotes.value.map(n => n.id)
-    }
-    pendingNoteId.value = null
-  }
+// 确认选择笔记
+const confirmNoteSelection = () => {
+  selectedNotes.value = allNotes.value.filter(n => tempSelectedNoteIds.value.includes(n.id))
+  formData.value.noteIds = tempSelectedNoteIds.value
+  noteDialogVisible.value = false
 }
 
 // 移除笔记
 const removeNote = (noteId) => {
   selectedNotes.value = selectedNotes.value.filter(n => n.id !== noteId)
   formData.value.noteIds = selectedNotes.value.map(n => n.id)
+}
+
+// 查看笔记详情（弹窗内）
+const viewNoteDetail = (note) => {
+  currentViewNote.value = note
+  viewNoteDialogVisible.value = true
+}
+
+// 格式化日期
+const formatDate = (dateStr) => {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`
 }
 
 // 获取日程详情
@@ -259,16 +344,19 @@ const fetchScheduleDetail = async () => {
       formData.value.repeatRule = data.repeatRule || 'none'
       formData.value.remark = data.remark || ''
 
-      // 设置标签
       if (data.tagId) {
         selectedTag.value = getTagById(data.tagId)
         formData.value.tagId = data.tagId
       }
 
-      // 设置关联笔记
       if (data.noteIds && data.noteIds.length > 0) {
-        selectedNotes.value = getNotesByIds(data.noteIds)
+        // 先获取所有笔记列表，再筛选出关联的
+        await fetchNoteList()  // 确保笔记列表已加载
+        selectedNotes.value = allNotes.value.filter(n => data.noteIds.includes(n.id))
         formData.value.noteIds = data.noteIds
+      } else {
+        selectedNotes.value = []
+        formData.value.noteIds = []
       }
 
       // 时间类型处理
@@ -305,7 +393,17 @@ const fetchNoteList = async () => {
   try {
     const response = await axios.get('http://localhost:8080/api/note/list')
     if (response.data.code === 200) {
-      allNotes.value = response.data.data
+      const notes = response.data.data || []
+      for (const note of notes) {
+        const tagRes = await axios.get('http://localhost:8080/api/tags/target', {
+          params: { targetId: note.id, targetType: 'NOTE' }
+        })
+        if (tagRes.data.code === 200 && tagRes.data.data) {
+          note.tagName = tagRes.data.data.name
+          note.tagId = tagRes.data.data.id
+        }
+      }
+      allNotes.value = notes
     }
   } catch (error) {
     console.error('获取笔记失败', error)
@@ -361,16 +459,55 @@ const saveSchedule = async () => {
   })
 }
 
-// 返回
-const goBack = () => {
-  router.back()
+// 标记是否是从笔记页返回
+const isReturningFromNote = ref(sessionStorage.getItem('isReturningFromNote') === 'true')
+
+// 保存标记到 sessionStorage
+const setReturningFromNote = (value) => {
+  isReturningFromNote.value = value
+  sessionStorage.setItem('isReturningFromNote', value)
 }
 
-onMounted(() => {
-  fetchScheduleDetail()
-  fetchTagList()
-  fetchNoteList()
+// 跳转到笔记详情页
+const goToNoteDetail = (noteId) => {
+  if (noteId) {
+    sessionStorage.setItem('returnToSchedule', scheduleId.value)
+    setReturningFromNote(true)
+    router.push({ path: `/notes/edit/${noteId}` })
+  }
+}
+
+// 返回日程列表页
+const goBack = () => {
+  // 检查是否是从笔记页返回
+  const isReturning = sessionStorage.getItem('isReturningFromNote') === 'true'
+  if (isReturning) {
+    // 清除标记，避免重复跳转
+    sessionStorage.removeItem('isReturningFromNote')
+    router.push('/schedules')
+  } else {
+    router.back()
+  }
+}
+
+// 监听离开路由，记录是否去了笔记页
+onBeforeRouteLeave((to, from, next) => {
+  if (to.path.includes('/notes/edit')) {
+    isReturningFromNote.value = true
+  }
+  next()
 })
+
+const handleTagCreated = () => {
+  fetchTagList()
+}
+
+onMounted(async () => {
+  await fetchNoteList()
+  await fetchTagList()
+  await fetchScheduleDetail()
+})
+
 </script>
 
 <style scoped>
@@ -423,4 +560,81 @@ onMounted(() => {
   font-size: 13px;
 }
 
+.note-tag.clickable {
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.note-tag.clickable:hover {
+  transform: scale(1.02);
+  opacity: 0.8;
+}
+
+/* 笔记选择器样式 */
+.note-selector {
+  padding: 8px 0;
+}
+
+.note-search-bar {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.note-list-selector {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.note-item-selector {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.note-item-selector:hover {
+  background-color: #f5f7fa;
+}
+
+.note-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.note-title {
+  font-size: 14px;
+  color: #303133;
+}
+
+.note-tag-name {
+  font-size: 12px;
+  color: #909399;
+}
+
+.note-view-content {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.note-view-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #909399;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.note-view-body {
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
 </style>

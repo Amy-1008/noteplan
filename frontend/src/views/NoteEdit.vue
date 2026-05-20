@@ -3,7 +3,16 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>{{ isEdit ? '编辑笔记' : '新建笔记' }}</span>
+          <div class="header-left">
+            <el-button
+                v-if="returnToScheduleId"
+                @click="goBackToSchedule"
+                size="small"
+            >
+              <el-icon><ArrowLeft /></el-icon> 返回日程
+            </el-button>
+            <span>{{ isEdit ? '编辑笔记' : 'a新建笔记' }}</span>
+          </div>
           <div>
             <el-button @click="goBack">取消</el-button>
             <el-button type="primary" @click="saveNote" :loading="saving">保存</el-button>
@@ -66,6 +75,7 @@ import { ElMessage } from 'element-plus'
 import TagSelector from '@/components/TagSelector.vue'
 import { addNote, getNoteById, updateNote, getNoteVersions, recoverVersion } from '@/api/note'
 import axios from 'axios'
+import { ArrowLeft } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -203,6 +213,15 @@ const formatDate = (dateStr) => {
   return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`
 }
 
+// 从 sessionStorage 获取返回日程的 ID
+const returnToScheduleId = ref(sessionStorage.getItem('returnToSchedule'))
+
+// 返回日程详情页
+const goBackToSchedule = () => {
+  sessionStorage.removeItem('returnToSchedule')
+  router.push({ path: '/schedule/detail', query: { id: returnToScheduleId.value } })
+}
+
 onMounted(() => {
   loadNote()
 })
@@ -217,6 +236,11 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 .version-list {
   margin-top: 8px;

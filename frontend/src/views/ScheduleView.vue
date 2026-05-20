@@ -42,7 +42,6 @@
                 v-for="schedule in paginatedGroups.expired"
                 :key="schedule.id"
                 class="schedule-item expired"
-                @click="goToDetail(schedule.id)"
             >
               <el-checkbox
                   v-if="deleteMode"
@@ -51,13 +50,11 @@
                   @click.stop
                   class="delete-checkbox"
               />
-              <!-- 完成状态复选框 -->
               <el-checkbox
                   v-model="schedule.completed"
                   @click.stop="!deleteMode && toggleComplete(schedule, $event)"
                   :disabled="deleteMode"
               />
-              <!-- 内容区域 -->
               <div class="schedule-content" @click="!deleteMode && goToDetail(schedule.id)">
                 <span class="schedule-title">{{ schedule.title }}</span>
               </div>
@@ -115,7 +112,6 @@
                 v-for="schedule in paginatedGroups.nextWeek"
                 :key="schedule.id"
                 class="schedule-item normal"
-                @click="goToDetail(schedule.id)"
             >
               <el-checkbox
                   v-if="deleteMode"
@@ -124,13 +120,11 @@
                   @click.stop
                   class="delete-checkbox"
               />
-              <!-- 完成状态复选框 -->
               <el-checkbox
                   v-model="schedule.completed"
                   @click.stop="!deleteMode && toggleComplete(schedule, $event)"
                   :disabled="deleteMode"
               />
-              <!-- 内容区域 -->
               <div class="schedule-content" @click="!deleteMode && goToDetail(schedule.id)">
                 <span class="schedule-title">{{ schedule.title }}</span>
               </div>
@@ -188,7 +182,6 @@
                 v-for="schedule in paginatedGroups.other"
                 :key="schedule.id"
                 class="schedule-item normal"
-                @click="goToDetail(schedule.id)"
             >
               <el-checkbox
                   v-if="deleteMode"
@@ -197,13 +190,11 @@
                   @click.stop
                   class="delete-checkbox"
               />
-              <!-- 完成状态复选框 -->
               <el-checkbox
                   v-model="schedule.completed"
                   @click.stop="!deleteMode && toggleComplete(schedule, $event)"
                   :disabled="deleteMode"
               />
-              <!-- 内容区域 -->
               <div class="schedule-content" @click="!deleteMode && goToDetail(schedule.id)">
                 <span class="schedule-title">{{ schedule.title }}</span>
               </div>
@@ -261,7 +252,6 @@
                 v-for="schedule in paginatedGroups.completed"
                 :key="schedule.id"
                 class="schedule-item completed"
-                @click="goToDetail(schedule.id)"
             >
               <el-checkbox
                   v-if="deleteMode"
@@ -270,13 +260,11 @@
                   @click.stop
                   class="delete-checkbox"
               />
-              <!-- 完成状态复选框 -->
               <el-checkbox
                   v-model="schedule.completed"
                   @click.stop="!deleteMode && toggleComplete(schedule, $event)"
                   :disabled="deleteMode"
               />
-              <!-- 内容区域-->
               <div class="schedule-content" @click="!deleteMode && goToDetail(schedule.id)">
                 <span class="schedule-title">{{ schedule.title }}</span>
               </div>
@@ -346,7 +334,6 @@
           />
         </el-form-item>
 
-        <!-- 时间类型选择：时间点 / 时间段 -->
         <el-form-item label="时间类型" prop="timeType">
           <el-radio-group v-model="formData.timeType">
             <el-radio value="point">时间点</el-radio>
@@ -354,7 +341,6 @@
           </el-radio-group>
         </el-form-item>
 
-        <!-- 时间点模式：只选结束时间 -->
         <el-form-item v-if="formData.timeType === 'point'" label="时间" prop="endTime">
           <el-date-picker
               v-model="formData.endTime"
@@ -367,7 +353,6 @@
           />
         </el-form-item>
 
-        <!-- 时间段模式：选开始时间和结束时间 -->
         <template v-else>
           <el-form-item label="开始时间" prop="startTime">
             <el-date-picker
@@ -424,19 +409,24 @@
         </el-form-item>
 
         <el-form-item label="关联笔记">
-          <el-select
-              v-model="formData.noteIds"
-              multiple
-              placeholder="选择关联笔记"
-              style="width: 100%"
-          >
-            <el-option
-                v-for="note in noteList"
+          <!-- 已选笔记胶囊显示 -->
+          <div class="selected-notes-list" v-if="selectedNotes.length > 0">
+            <el-tag
+                v-for="note in selectedNotes"
                 :key="note.id"
-                :label="note.title"
-                :value="note.id"
-            />
-          </el-select>
+                closable
+                @close="removeNote(note.id)"
+                type="success"
+                effect="plain"
+            >
+              {{ note.title }}
+            </el-tag>
+          </div>
+
+          <!-- 选择笔记按钮 -->
+          <el-button size="small" @click="openNoteSelector">
+            <el-icon><Plus /></el-icon> 选择笔记
+          </el-button>
         </el-form-item>
       </el-form>
 
@@ -445,18 +435,98 @@
         <el-button type="primary" @click="submitSchedule">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 笔记选择器弹窗 -->
+    <el-dialog
+        v-model="noteDialogVisible"
+        title="选择关联笔记"
+        width="600px"
+        append-to-body
+    >
+      <div class="note-selector">
+        <div class="note-search-bar">
+          <el-input
+              v-model="noteSearchKeyword"
+              placeholder="按标题搜索"
+              clearable
+              prefix-icon="Search"
+              style="width: 200px; margin-right: 12px;"
+          />
+          <el-select
+              v-model="noteFilterTagId"
+              placeholder="按标签筛选"
+              clearable
+              style="width: 150px"
+          >
+            <el-option
+                v-for="tag in tagList"
+                :key="tag.id"
+                :label="tag.name"
+                :value="tag.id"
+            />
+          </el-select>
+        </div>
+
+        <!-- 笔记列表 - 添加渲染代码 -->
+        <div class="note-list-selector">
+          <div
+              v-for="note in filteredNoteList"
+              :key="note.id"
+              class="note-item-selector"
+              @click="toggleNoteSelection(note.id)"
+          >
+            <el-checkbox
+                :model-value="tempSelectedNoteIds.includes(note.id)"
+                @click.stop
+                @change="toggleNoteSelection(note.id)"
+            />
+            <div class="note-info">
+              <span class="note-title">{{ note.title || '无标题' }}</span>
+              <span v-if="note.tagName" class="note-tag-name">#{{ note.tagName }}</span>
+            </div>
+            <el-button text @click.stop="viewNoteDetail(note)">
+              <el-icon><Document /></el-icon> 查看
+            </el-button>
+          </div>
+          <el-empty v-if="filteredNoteList.length === 0" description="暂无笔记" />
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="noteDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="confirmNoteSelection">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 笔记详情查看弹窗 -->
+    <el-dialog
+        v-model="viewNoteDialogVisible"
+        :title="currentViewNote?.title || '笔记详情'"
+        width="500px"
+        append-to-body
+    >
+      <div class="note-view-content">
+        <div class="note-view-meta">
+          <span>更新于：{{ formatDate(currentViewNote?.updateTime) }}</span>
+          <el-tag v-if="currentViewNote?.tagName" size="small">{{ currentViewNote.tagName }}</el-tag>
+        </div>
+        <el-divider />
+        <div class="note-view-body">{{ currentViewNote?.content }}</div>
+      </div>
+      <template #footer>
+        <el-button @click="viewNoteDialogVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Plus, Delete} from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus, Delete, Document, Search } from '@element-plus/icons-vue'
 import axios from 'axios'
 import TagSidebar from "@/components/TagSidebar.vue"
 import TagSelector from "@/components/TagSelector.vue";
 import { useRouter } from 'vue-router'
-import { ElMessageBox } from 'element-plus'
 
 // ---------- 数据 ----------
 const scheduleList = ref([])
@@ -475,7 +545,7 @@ const formData = ref({
   endTime: '',
   repeatRule: 'none',
   remark: '',
-  tagId:null,
+  tagId: null,
   noteIds: []
 })
 
@@ -483,7 +553,7 @@ const formData = ref({
 const formRules = {
   title: [
     { required: true, message: '请输入日程标题', trigger: 'blur' },
-    { max: 20, message: '标题不能超过20个字符', trigger: 'blur' }  // 添加这行
+    { max: 20, message: '标题不能超过20个字符', trigger: 'blur' }
   ],
   endTime: [{ required: true, message: '请选择时间', trigger: 'change' }],
   startTime: [{
@@ -498,7 +568,6 @@ const formRules = {
       }
     }
   }],
-  // 备注的校验规则（需要添加到 el-form-item 的 prop）
   remark: [
     { max: 800, message: '备注不能超过800个字符', trigger: 'blur' }
   ]
@@ -596,13 +665,10 @@ const getTagName = (tagId) => {
   return tag ? tag.name : null
 }
 
-// 获取标签样式类型（根据 rank 决定颜色）
 const getTagType = (rank) => {
-  // rank: 0普通 1重要
   return rank === 1 ? 'danger' : 'info'
 }
 
-// 获取完整的日期时间（用于悬浮提示）
 const getFullDateTime = (schedule) => {
   if (!schedule.endTime) return ''
 
@@ -617,6 +683,70 @@ const getFullDateTime = (schedule) => {
   return `${formatFull(schedule.startTime)} ~ ${formatFull(schedule.endTime)}`
 }
 
+// ---------- 笔记选择器相关 ----------
+const selectedNotes = ref([])
+const noteSearchKeyword = ref('')
+const noteFilterTagId = ref(null)
+const noteDialogVisible = ref(false)
+const tempSelectedNoteIds = ref([])
+const viewNoteDialogVisible = ref(false)
+const currentViewNote = ref(null)
+
+const filteredNoteList = computed(() => {
+  let result = [...noteList.value]
+
+  if (noteSearchKeyword.value.trim()) {
+    const keyword = noteSearchKeyword.value.trim().toLowerCase()
+    result = result.filter(note =>
+        note.title?.toLowerCase().includes(keyword)
+    )
+  }
+
+  if (noteFilterTagId.value) {
+    result = result.filter(note => note.tagId === noteFilterTagId.value)
+  }
+
+  return result
+})
+
+const toggleNoteSelection = (noteId) => {
+  const index = tempSelectedNoteIds.value.indexOf(noteId)
+  if (index > -1) {
+    tempSelectedNoteIds.value.splice(index, 1)
+  } else {
+    tempSelectedNoteIds.value.push(noteId)
+  }
+}
+
+const openNoteSelector = () => {
+  tempSelectedNoteIds.value = [...formData.value.noteIds]
+  noteSearchKeyword.value = ''
+  noteFilterTagId.value = null
+  noteDialogVisible.value = true
+}
+
+const confirmNoteSelection = () => {
+  selectedNotes.value = noteList.value.filter(n => tempSelectedNoteIds.value.includes(n.id))
+  formData.value.noteIds = tempSelectedNoteIds.value
+  noteDialogVisible.value = false
+}
+
+const removeNote = (noteId) => {
+  selectedNotes.value = selectedNotes.value.filter(n => n.id !== noteId)
+  formData.value.noteIds = selectedNotes.value.map(n => n.id)
+}
+
+const viewNoteDetail = (note) => {
+  currentViewNote.value = note
+  viewNoteDialogVisible.value = true
+}
+
+const formatDate = (dateStr) => {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`
+}
+
 // ---------- 事件 ----------
 const onTagChange = (tagId) => {
   // 标签变化时刷新日程列表
@@ -624,22 +754,18 @@ const onTagChange = (tagId) => {
 }
 
 const toggleComplete = async (schedule, event) => {
-  // 阻止事件冒泡到父元素
   if (event) event.stopPropagation()
   if (deleteMode.value) return
 
   const originalCompleted = schedule.completed
   const newCompleted = originalCompleted ? 0 : 1
 
-  // 先乐观更新 UI
   schedule.completed = newCompleted
 
   try {
-    console.log('发送请求:', { id: schedule.id, completed: newCompleted })  // 添加日志
     const response = await axios.put('http://localhost:8080/api/schedule/complete', null, {
       params: { id: schedule.id, completed: newCompleted }
     })
-    console.log('响应:', response.data)  // 添加日志
     if (response.data.code === 200) {
       await fetchScheduleList()
       ElMessage.success(newCompleted ? '已完成' : '已取消完成')
@@ -647,7 +773,6 @@ const toggleComplete = async (schedule, event) => {
       throw new Error(response.data.message)
     }
   } catch (error) {
-    // 失败时回滚状态
     schedule.completed = originalCompleted
     console.error('更新完成状态失败', error)
     ElMessage.error('操作失败，请重试')
@@ -694,7 +819,6 @@ const handleStartTimeChange = (val) => {
   }
 }
 
-// 时间段模式：结束时间变化时，校验是否大于开始时间
 const handleEndTimeChangeForPeriod = (val) => {
   if (val && formData.value.timeType === 'period') {
     const end = new Date(val)
@@ -708,7 +832,6 @@ const handleEndTimeChangeForPeriod = (val) => {
   }
 }
 
-// 监听时间类型切换
 watch(() => formData.value.timeType, (newVal) => {
   const defaultTime = getDefaultTime()
 
@@ -733,9 +856,10 @@ const openAddDialog = () => {
     endTime: defaultTime,
     repeatRule: 'none',
     remark: '',
-    tagId:null,
+    tagId: null,
     noteIds: []
   }
+  selectedNotes.value = []
   dialogVisible.value = true
 }
 
@@ -797,7 +921,17 @@ const fetchNoteList = async () => {
   try {
     const response = await axios.get('http://localhost:8080/api/note/list')
     if (response.data.code === 200) {
-      noteList.value = response.data.data
+      const notes = response.data.data || []
+      for (const note of notes) {
+        const tagRes = await axios.get('http://localhost:8080/api/tags/target', {
+          params: { targetId: note.id, targetType: 'NOTE' }
+        })
+        if (tagRes.data.code === 200 && tagRes.data.data) {
+          note.tagName = tagRes.data.data.name
+          note.tagId = tagRes.data.data.id
+        }
+      }
+      noteList.value = notes
     }
   } catch (error) {
     console.error('获取笔记失败', error)
@@ -807,29 +941,23 @@ const fetchNoteList = async () => {
 const fetchScheduleList = async () => {
   try {
     if (currentTag.value === 'uncategorized') {
-      // 未分类：获取所有日程，然后筛选出没有关联任何标签的日程
       const response = await axios.get('http://localhost:8080/api/schedule/list')
       const allSchedules = response.data.data || []
 
-      // 获取所有有标签的日程ID（返回的是 [{id, type}] 数组）
       const allTagsResponse = await axios.get('http://localhost:8080/api/tags/filter', {
         params: { targetType: 'SCHEDULE' }
       })
-      // 提取出 id 数组
       const taggedScheduleIds = (allTagsResponse.data.data || []).map(item => item.id)
 
-      // 筛选出没有标签的日程
       scheduleList.value = allSchedules.filter(s => !taggedScheduleIds.includes(s.id))
 
     } else if (currentTag.value !== 'all') {
-      // 有标签筛选
       const filterResponse = await axios.get('http://localhost:8080/api/tags/filter', {
         params: {
           tagId: currentTag.value,
           targetType: 'SCHEDULE'
         }
       })
-      // 提取出 id 数组
       const scheduleIds = (filterResponse.data.data || []).map(item => item.id)
 
       if (scheduleIds.length > 0) {
@@ -841,12 +969,10 @@ const fetchScheduleList = async () => {
         scheduleList.value = []
       }
     } else {
-      // 所有日程
       const response = await axios.get('http://localhost:8080/api/schedule/list')
       scheduleList.value = response.data.data || []
     }
 
-    // 重置分页
     currentPageMap.value = {
       expired: 1,
       nextWeek: 1,
@@ -860,25 +986,21 @@ const fetchScheduleList = async () => {
 }
 
 // ---------- 批量删除相关 ----------
-const deleteMode = ref(false)        // 删除模式开关
-const selectedIds = ref([])          // 已选中的日程ID列表
+const deleteMode = ref(false)
+const selectedIds = ref([])
 
-// 切换删除模式
 const toggleDeleteMode = () => {
   deleteMode.value = !deleteMode.value
   if (!deleteMode.value) {
-    // 退出删除模式时清空选中
     selectedIds.value = []
   }
 }
 
-// 取消删除
 const cancelDelete = () => {
   deleteMode.value = false
   selectedIds.value = []
 }
 
-// 切换选中状态
 const toggleSelect = (id) => {
   const index = selectedIds.value.indexOf(id)
   if (index > -1) {
@@ -888,7 +1010,6 @@ const toggleSelect = (id) => {
   }
 }
 
-// 批量删除
 const batchDelete = async () => {
   if (selectedIds.value.length === 0) {
     ElMessage.warning('请选择要删除的日程')
@@ -912,9 +1033,9 @@ const batchDelete = async () => {
 
     if (response.data.code === 200) {
       ElMessage.success(`成功删除 ${selectedIds.value.length} 个日程`)
-      deleteMode.value = false  // 退出删除模式
-      selectedIds.value = []    // 清空选中
-      fetchScheduleList()       // 刷新列表
+      deleteMode.value = false
+      selectedIds.value = []
+      fetchScheduleList()
     } else {
       ElMessage.error(response.data.message || '删除失败')
     }
@@ -929,6 +1050,7 @@ const batchDelete = async () => {
 const handleTagCreated = (newTag) => {
   fetchTagList()
 }
+
 onMounted(() => {
   fetchTagList()
   fetchNoteList()
@@ -967,7 +1089,34 @@ onMounted(() => {
   font-weight: 600;
 }
 
-/* 分组样式 */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.delete-mode-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #fef0f0;
+  border: 1px solid #fbc4c4;
+  border-radius: 8px;
+  padding: 8px 16px;
+  margin-bottom: 16px;
+}
+
+.delete-mode-bar span {
+  font-size: 14px;
+  color: #f56c6c;
+}
+
+.delete-mode-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .schedule-group {
   margin-bottom: 28px;
   background: white;
@@ -1033,6 +1182,7 @@ onMounted(() => {
 .schedule-content {
   flex: 1;
   min-width: 0;
+  cursor: pointer;
 }
 
 .schedule-title {
@@ -1044,7 +1194,6 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-/* 右侧：标签+时间区域 - 固定宽度 100px */
 .schedule-right {
   display: flex;
   flex-direction: column;
@@ -1052,29 +1201,22 @@ onMounted(() => {
   justify-content: center;
   gap: 6px;
   flex-shrink: 0;
-  width: 100px;  /* 固定宽度，确保位置稳定 */
+  width: 100px;
 }
 
-/* 标签样式 - 根据 rank 区分颜色 */
 .schedule-tag {
   font-size: 12px;
   height: 22px;
   line-height: 20px;
   margin: 0;
-  max-width: 90px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  background-color: #ecf5ff;
+  border-color: #d9ecff;
+  color: #409eff;
+  display: inline-block;
+  width: auto;
+  max-width: none;
 }
 
-/* rank=0 普通标签（灰色） */
-.schedule-tag.tag-normal {
-  background-color: #f4f4f5;
-  border-color: #e9e9eb;
-  color: #909399;
-}
-
-/* rank=1 重要标签（红色） */
 .schedule-tag.tag-important {
   background-color: #fef0f0;
   border-color: #fbc4c4;
@@ -1092,7 +1234,6 @@ onMounted(() => {
   color: #409eff;
 }
 
-/* 状态样式 */
 .schedule-item.expired {
   background-color: #fef0f0;
 }
@@ -1114,7 +1255,6 @@ onMounted(() => {
   color: #303133;
 }
 
-/* 分组底部：分页栏 */
 .group-pagination {
   display: flex;
   justify-content: space-between;
@@ -1132,72 +1272,129 @@ onMounted(() => {
   color: #606266;
 }
 
-/* 占位符，没有标签时保持高度 */
 .tag-placeholder {
   height: 22px;
 }
 
-/* 头部区域 */
-.schedule-header {
+.delete-checkbox {
+  margin-right: 4px;
+}
+
+/* 笔记选择器样式 */
+.note-selector {
+  padding: 8px 0;
+}
+
+.note-search-bar {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #ebeef5;
 }
 
-.schedule-header h2 {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 600;
+.note-list-selector {
+  max-height: 400px;
+  overflow-y: auto;
 }
 
-/* 头部按钮区域 - 靠右 */
-.header-actions {
+.note-item-selector {
   display: flex;
   align-items: center;
   gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: background 0.2s;
 }
 
-/* 删除模式提示条 */
-.delete-mode-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background-color: #fef0f0;
-  border: 1px solid #fbc4c4;
-  border-radius: 8px;
-  padding: 8px 16px;
-  margin-bottom: 16px;
+.note-item-selector:hover {
+  background-color: #f5f7fa;
 }
 
-.delete-mode-bar span {
-  font-size: 14px;
-  color: #f56c6c;
-}
-
-/* 删除模式按钮组 - 靠右 */
-.delete-mode-actions {
+.note-info {
+  flex: 1;
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-/* 删除模式复选框 */
-.delete-checkbox {
-  margin-right: 4px;
+.note-title {
+  font-size: 14px;
+  color: #303133;
 }
 
-/* 占位符 */
-.tag-placeholder {
-  height: 22px;
+.note-tag-name {
+  font-size: 12px;
+  color: #909399;
 }
 
-/* 删除模式下内容区域不可点击样式 */
-.schedule-item .schedule-content {
+.note-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.note-tag-title {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note-view-icon {
   cursor: pointer;
+  margin-left: 4px;
 }
 
-.delete-mode-bar + .schedule-groups .schedule-content {
+.note-view-icon:hover {
+  color: #409eff;
+}
+
+.note-view-content {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.note-view-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #909399;
+  font-size: 12px;
+}
+
+.note-view-body {
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+.notes-display {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.notes-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.placeholder-text {
+  color: #c0c4cc;
+  font-size: 13px;
+}
+
+.selected-notes-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.selected-note-tag {
   cursor: default;
 }
 </style>
