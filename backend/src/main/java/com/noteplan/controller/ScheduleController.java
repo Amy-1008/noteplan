@@ -67,4 +67,11 @@ public class ScheduleController {
         ScheduleDetailVO vo = scheduleService.getDetailById(id);
         return Result.success(vo);
     }
+
+    // 批量删除日程
+    @DeleteMapping("/batch-delete")
+    public Result<Void> batchDelete(@RequestBody List<Long> ids) {
+        scheduleService.batchDelete(ids);
+        return Result.success();
+    }
 }

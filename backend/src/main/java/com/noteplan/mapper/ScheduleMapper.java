@@ -44,4 +44,8 @@ public interface ScheduleMapper {
     @Update("UPDATE schedule SET title = #{title}, start_time = #{startTime}, end_time = #{endTime}, " +
             "repeat_rule = #{repeatRule}, remark = #{remark} WHERE id = #{id}")
     int update(Schedule schedule);
+
+    // 删除
+    @Update("UPDATE schedule SET status = 1 WHERE id = #{id}")
+    int deleteById(Long id);
 }

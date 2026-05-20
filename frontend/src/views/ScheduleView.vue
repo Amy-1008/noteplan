@@ -7,9 +7,28 @@
     <div class="schedule-main">
       <div class="schedule-header">
         <h2>日程</h2>
-        <el-button type="primary" circle @click="openAddDialog">
-          <el-icon><Plus /></el-icon>
-        </el-button>
+        <div class="header-actions">
+          <!-- 批量删除 -->
+          <el-button
+              :type="deleteMode ? 'danger' : 'default'"
+              plain
+              circle
+              @click="toggleDeleteMode"
+              :icon="Delete"
+          />
+          <!-- 添加按钮 -->
+          <el-button type="primary" circle @click="openAddDialog" :icon="Plus" />
+        </div>
+      </div>
+
+      <div v-if="deleteMode" class="delete-mode-bar">
+        <span>已选择 {{ selectedIds.length }} 个日程</span>
+        <div class="delete-mode-actions">
+          <el-button size="small" @click="cancelDelete">取消</el-button>
+          <el-button type="danger" size="small" @click="batchDelete" :disabled="selectedIds.length === 0">
+            确认删除
+          </el-button>
+        </div>
       </div>
 
       <div class="schedule-groups">
@@ -25,16 +44,30 @@
                 class="schedule-item expired"
                 @click="goToDetail(schedule.id)"
             >
-              <el-checkbox v-model="schedule.completed" @click.stop="toggleComplete(schedule, $event)"/>
-              <div class="schedule-content">
+              <el-checkbox
+                  v-if="deleteMode"
+                  :model-value="selectedIds.includes(schedule.id)"
+                  @change="toggleSelect(schedule.id)"
+                  @click.stop
+                  class="delete-checkbox"
+              />
+              <!-- 完成状态复选框 -->
+              <el-checkbox
+                  v-model="schedule.completed"
+                  @click.stop="!deleteMode && toggleComplete(schedule, $event)"
+                  :disabled="deleteMode"
+              />
+              <!-- 内容区域 -->
+              <div class="schedule-content" @click="!deleteMode && goToDetail(schedule.id)">
                 <span class="schedule-title">{{ schedule.title }}</span>
               </div>
               <div class="schedule-right">
                 <el-tag
                     v-if="schedule.tagId && getTagName(schedule.tagId)"
                     size="small"
-                    :class="schedule.rank === 1 ? 'tag-important' : 'tag-normal'"
+                    :type="getTagType(schedule.rank)"
                     effect="plain"
+                    class="schedule-tag"
                 >
                   {{ getTagName(schedule.tagId) }}
                 </el-tag>
@@ -84,16 +117,30 @@
                 class="schedule-item normal"
                 @click="goToDetail(schedule.id)"
             >
-              <el-checkbox v-model="schedule.completed" @click.stop="toggleComplete(schedule, $event)"/>
-              <div class="schedule-content">
+              <el-checkbox
+                  v-if="deleteMode"
+                  :model-value="selectedIds.includes(schedule.id)"
+                  @change="toggleSelect(schedule.id)"
+                  @click.stop
+                  class="delete-checkbox"
+              />
+              <!-- 完成状态复选框 -->
+              <el-checkbox
+                  v-model="schedule.completed"
+                  @click.stop="!deleteMode && toggleComplete(schedule, $event)"
+                  :disabled="deleteMode"
+              />
+              <!-- 内容区域 -->
+              <div class="schedule-content" @click="!deleteMode && goToDetail(schedule.id)">
                 <span class="schedule-title">{{ schedule.title }}</span>
               </div>
               <div class="schedule-right">
                 <el-tag
                     v-if="schedule.tagId && getTagName(schedule.tagId)"
                     size="small"
-                    :class="schedule.rank === 1 ? 'tag-important' : 'tag-normal'"
+                    :type="getTagType(schedule.rank)"
                     effect="plain"
+                    class="schedule-tag"
                 >
                   {{ getTagName(schedule.tagId) }}
                 </el-tag>
@@ -143,16 +190,30 @@
                 class="schedule-item normal"
                 @click="goToDetail(schedule.id)"
             >
-              <el-checkbox v-model="schedule.completed" @click.stop="toggleComplete(schedule, $event)"/>
-              <div class="schedule-content">
+              <el-checkbox
+                  v-if="deleteMode"
+                  :model-value="selectedIds.includes(schedule.id)"
+                  @change="toggleSelect(schedule.id)"
+                  @click.stop
+                  class="delete-checkbox"
+              />
+              <!-- 完成状态复选框 -->
+              <el-checkbox
+                  v-model="schedule.completed"
+                  @click.stop="!deleteMode && toggleComplete(schedule, $event)"
+                  :disabled="deleteMode"
+              />
+              <!-- 内容区域 -->
+              <div class="schedule-content" @click="!deleteMode && goToDetail(schedule.id)">
                 <span class="schedule-title">{{ schedule.title }}</span>
               </div>
               <div class="schedule-right">
                 <el-tag
                     v-if="schedule.tagId && getTagName(schedule.tagId)"
                     size="small"
-                    :class="schedule.rank === 1 ? 'tag-important' : 'tag-normal'"
+                    :type="getTagType(schedule.rank)"
                     effect="plain"
+                    class="schedule-tag"
                 >
                   {{ getTagName(schedule.tagId) }}
                 </el-tag>
@@ -202,16 +263,30 @@
                 class="schedule-item completed"
                 @click="goToDetail(schedule.id)"
             >
-              <el-checkbox v-model="schedule.completed" @click.stop="toggleComplete(schedule, $event)"/>
-              <div class="schedule-content">
+              <el-checkbox
+                  v-if="deleteMode"
+                  :model-value="selectedIds.includes(schedule.id)"
+                  @change="toggleSelect(schedule.id)"
+                  @click.stop
+                  class="delete-checkbox"
+              />
+              <!-- 完成状态复选框 -->
+              <el-checkbox
+                  v-model="schedule.completed"
+                  @click.stop="!deleteMode && toggleComplete(schedule, $event)"
+                  :disabled="deleteMode"
+              />
+              <!-- 内容区域-->
+              <div class="schedule-content" @click="!deleteMode && goToDetail(schedule.id)">
                 <span class="schedule-title">{{ schedule.title }}</span>
               </div>
               <div class="schedule-right">
                 <el-tag
                     v-if="schedule.tagId && getTagName(schedule.tagId)"
                     size="small"
-                    :class="schedule.rank === 1 ? 'tag-important' : 'tag-normal'"
+                    :type="getTagType(schedule.rank)"
                     effect="plain"
+                    class="schedule-tag"
                 >
                   {{ getTagName(schedule.tagId) }}
                 </el-tag>
@@ -376,7 +451,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Delete} from '@element-plus/icons-vue'
 import axios from 'axios'
 import TagSidebar from "@/components/TagSidebar.vue"
 import TagSelector from "@/components/TagSelector.vue";
@@ -551,6 +626,7 @@ const onTagChange = (tagId) => {
 const toggleComplete = async (schedule, event) => {
   // 阻止事件冒泡到父元素
   if (event) event.stopPropagation()
+  if (deleteMode.value) return
 
   const originalCompleted = schedule.completed
   const newCompleted = originalCompleted ? 0 : 1
@@ -579,6 +655,7 @@ const toggleComplete = async (schedule, event) => {
 }
 
 const goToDetail = (id) => {
+  if (deleteMode.value) return
   router.push({ path: '/schedule/detail', query: { id } })
 }
 
@@ -781,6 +858,74 @@ const fetchScheduleList = async () => {
     ElMessage.error('获取日程失败')
   }
 }
+
+// ---------- 批量删除相关 ----------
+const deleteMode = ref(false)        // 删除模式开关
+const selectedIds = ref([])          // 已选中的日程ID列表
+
+// 切换删除模式
+const toggleDeleteMode = () => {
+  deleteMode.value = !deleteMode.value
+  if (!deleteMode.value) {
+    // 退出删除模式时清空选中
+    selectedIds.value = []
+  }
+}
+
+// 取消删除
+const cancelDelete = () => {
+  deleteMode.value = false
+  selectedIds.value = []
+}
+
+// 切换选中状态
+const toggleSelect = (id) => {
+  const index = selectedIds.value.indexOf(id)
+  if (index > -1) {
+    selectedIds.value.splice(index, 1)
+  } else {
+    selectedIds.value.push(id)
+  }
+}
+
+// 批量删除
+const batchDelete = async () => {
+  if (selectedIds.value.length === 0) {
+    ElMessage.warning('请选择要删除的日程')
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(
+        `确定要删除选中的 ${selectedIds.value.length} 个日程吗？删除后不可恢复！`,
+        '批量删除确认',
+        {
+          confirmButtonText: '确定删除',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }
+    )
+
+    const response = await axios.delete('http://localhost:8080/api/schedule/batch-delete', {
+      data: selectedIds.value
+    })
+
+    if (response.data.code === 200) {
+      ElMessage.success(`成功删除 ${selectedIds.value.length} 个日程`)
+      deleteMode.value = false  // 退出删除模式
+      selectedIds.value = []    // 清空选中
+      fetchScheduleList()       // 刷新列表
+    } else {
+      ElMessage.error(response.data.message || '删除失败')
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('批量删除失败', error)
+      ElMessage.error('删除失败')
+    }
+  }
+}
+
 const handleTagCreated = (newTag) => {
   fetchTagList()
 }
@@ -990,5 +1135,69 @@ onMounted(() => {
 /* 占位符，没有标签时保持高度 */
 .tag-placeholder {
   height: 22px;
+}
+
+/* 头部区域 */
+.schedule-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.schedule-header h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+/* 头部按钮区域 - 靠右 */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* 删除模式提示条 */
+.delete-mode-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #fef0f0;
+  border: 1px solid #fbc4c4;
+  border-radius: 8px;
+  padding: 8px 16px;
+  margin-bottom: 16px;
+}
+
+.delete-mode-bar span {
+  font-size: 14px;
+  color: #f56c6c;
+}
+
+/* 删除模式按钮组 - 靠右 */
+.delete-mode-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 删除模式复选框 */
+.delete-checkbox {
+  margin-right: 4px;
+}
+
+/* 占位符 */
+.tag-placeholder {
+  height: 22px;
+}
+
+/* 删除模式下内容区域不可点击样式 */
+.schedule-item .schedule-content {
+  cursor: pointer;
+}
+
+.delete-mode-bar + .schedule-groups .schedule-content {
+  cursor: default;
 }
 </style>

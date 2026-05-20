@@ -197,4 +197,19 @@ public class ScheduleService {
 
         return vo;
     }
+
+    @Transactional
+    public void batchDelete(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return;
+        }
+        for (Long id : ids) {
+            // 1. 删除日程关联的标签
+            noteTagMapper.deleteByTarget(id, "SCHEDULE");
+            // 2. 删除日程关联的笔记
+            scheduleNoteMapper.deleteByScheduleId(id);
+            // 3. 删除日程（软删除或硬删除）
+            scheduleMapper.deleteById(id);
+        }
+    }
 }
