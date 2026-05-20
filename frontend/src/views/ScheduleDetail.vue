@@ -447,7 +447,7 @@ const saveSchedule = async () => {
 
         if (response.data.code === 200) {
           ElMessage.success('保存成功')
-          router.back()
+          router.push('/schedules')
         } else {
           ElMessage.error(response.data.message || '保存失败')
         }
@@ -471,32 +471,29 @@ const setReturningFromNote = (value) => {
 // 跳转到笔记详情页
 const goToNoteDetail = (noteId) => {
   if (noteId) {
+    // 设置标记，表示要从日程详情跳转到笔记
     sessionStorage.setItem('returnToSchedule', scheduleId.value)
-    setReturningFromNote(true)
-    router.push({ path: `/notes/edit/${noteId}` })
+    sessionStorage.setItem('fromSchedule', 'true')
+    sessionStorage.setItem('isReturningFromNote', 'true')
+    router.push({ path: `/notes/edit/${noteId}`, query: { from: 'schedule' } })
   }
 }
 
 // 返回日程列表页
 const goBack = () => {
-  // 检查是否是从笔记页返回
+  // 检查 sessionStorage 中的标记
   const isReturning = sessionStorage.getItem('isReturningFromNote') === 'true'
-  if (isReturning) {
-    // 清除标记，避免重复跳转
+  const fromSchedule = sessionStorage.getItem('fromSchedule') === 'true'
+
+  if (isReturning && fromSchedule) {
+    // 清除所有相关标记
     sessionStorage.removeItem('isReturningFromNote')
+    sessionStorage.removeItem('fromSchedule')
     router.push('/schedules')
   } else {
     router.back()
   }
 }
-
-// 监听离开路由，记录是否去了笔记页
-onBeforeRouteLeave((to, from, next) => {
-  if (to.path.includes('/notes/edit')) {
-    isReturningFromNote.value = true
-  }
-  next()
-})
 
 const handleTagCreated = () => {
   fetchTagList()

@@ -82,6 +82,10 @@ const route = useRoute()
 const isEdit = computed(() => !!route.params.id)
 const noteId = computed(() => route.params.id ? parseInt(route.params.id) : null)
 
+// 获取来源页面（从日程详情进入还是从笔记管理进入）
+const fromSchedule = ref(route.query.from === 'schedule' || sessionStorage.getItem('fromSchedule') === 'true')
+const returnToScheduleId = ref(sessionStorage.getItem('returnToSchedule'))
+
 const formRef = ref(null)
 const saving = ref(false)
 const selectedTagId = ref(null)
@@ -125,11 +129,11 @@ const loadNote = async () => {
       }
     } else {
       ElMessage.error('加载笔记失败')
-      router.push('/notes')
+      goBack()
     }
   } catch (err) {
     ElMessage.error('加载笔记失败')
-    router.push('/notes')
+    goBack()
   }
 }
 
@@ -169,7 +173,7 @@ const saveNote = async () => {
         })
       }
       ElMessage.success(isEdit.value ? '更新成功' : '创建成功')
-      router.push('/notes')
+      goBack() // 统一使用 goBack 方法
     } else {
       ElMessage.error(res.data.message || '操作失败')
     }
@@ -180,7 +184,23 @@ const saveNote = async () => {
   }
 }
 
-const goBack = () => router.push('/notes')
+// 返回逻辑：根据来源决定返回哪里
+const goBack = () => {
+  if (fromSchedule.value && returnToScheduleId.value) {
+    // 从日程详情进入，返回日程详情页
+    // 注意：这里不清除 isReturningFromNote，让日程详情页自己处理
+    router.push({ path: '/schedule/detail', query: { id: returnToScheduleId.value } })
+  } else {
+    // 从笔记管理进入，返回笔记管理页
+    router.push('/notes')
+  }
+}
+
+// 返回日程详情页（专门用于点击"返回日程"按钮）
+const goBackToSchedule = () => {
+  // 注意：不清除 isReturningFromNote，让日程详情页自己处理
+  router.push({ path: '/schedule/detail', query: { id: returnToScheduleId.value } })
+}
 
 const handleTagCreated = () => {
   // 标签创建后无需额外操作
@@ -211,15 +231,6 @@ const formatDate = (dateStr) => {
   if (!dateStr) return ''
   const d = new Date(dateStr)
   return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`
-}
-
-// 从 sessionStorage 获取返回日程的 ID
-const returnToScheduleId = ref(sessionStorage.getItem('returnToSchedule'))
-
-// 返回日程详情页
-const goBackToSchedule = () => {
-  sessionStorage.removeItem('returnToSchedule')
-  router.push({ path: '/schedule/detail', query: { id: returnToScheduleId.value } })
 }
 
 onMounted(() => {
