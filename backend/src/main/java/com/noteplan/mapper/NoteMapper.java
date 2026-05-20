@@ -17,12 +17,12 @@ public interface NoteMapper {
     @Select("SELECT * FROM note WHERE status = 0 ORDER BY update_time DESC")
     List<Note> selectAll();
 
-    @Insert("INSERT INTO note (title, content, create_time, update_time, status, rank) " +
+    @Insert("INSERT INTO note (title, content, create_time, update_time, status, `rank`) " +
             "VALUES (#{title}, #{content}, #{createTime}, #{updateTime}, #{status}, #{rank})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(Note note);
 
-    @Update("UPDATE note SET title = #{title}, content = #{content}, update_time = #{updateTime}, rank = #{rank} WHERE id = #{id}")
+    @Update("UPDATE note SET title = #{title}, content = #{content}, update_time = #{updateTime}, `rank` = #{rank} WHERE id = #{id}")
     int update(Note note);
 
     // 软删除（仅更新 status = 1）
