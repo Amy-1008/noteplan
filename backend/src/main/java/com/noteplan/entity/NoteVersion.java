@@ -8,6 +8,8 @@ public class NoteVersion {
     private Integer versionNo;
     private String content;
     private LocalDateTime saveTime;
+    private Long tagId;
+    private String title;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -23,4 +25,11 @@ public class NoteVersion {
 
     public LocalDateTime getSaveTime() { return saveTime; }
     public void setSaveTime(LocalDateTime saveTime) { this.saveTime = saveTime; }
+
+    public Long getTagId() { return tagId; }
+    public void setTagId(Long tagId) { this.tagId = tagId; }
+
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
+
 }

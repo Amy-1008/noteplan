@@ -145,6 +145,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getNoteList, deleteNote, addNote, updateNote } from '@/api/note'
 import axios from 'axios'
@@ -250,6 +251,7 @@ const formatDate = (dateStr) => {
 const dialogVisible = ref(false)
 const dialogTitle = ref('新建笔记')
 const dialogType = ref('create')
+const router = useRouter()
 const formRef = ref()
 const saving = ref(false)
 const noteForm = reactive({
@@ -271,13 +273,7 @@ const handleCreate = () => {
 }
 
 const handleEdit = (row) => {
-  dialogType.value = 'edit'
-  dialogTitle.value = '编辑笔记'
-  noteForm.id = row.id
-  noteForm.title = row.title || ''
-  noteForm.content = row.content || ''
-  noteForm.tagId = row.tagId
-  dialogVisible.value = true
+  router.push(`/notes/edit/${row.id}`)
 }
 
 const saveNote = async () => {

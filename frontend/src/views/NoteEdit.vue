@@ -60,6 +60,13 @@
 
     <!-- 版本预览弹窗 -->
     <el-dialog v-model="previewVisible" title="版本内容预览" width="60%">
+      <div class="preview-header">
+        <div class="preview-title">{{ previewTitle }}</div>
+        <div class="preview-tag" v-if="previewTagName">
+          <el-tag size="small">{{ previewTagName }}</el-tag>
+        </div>
+      </div>
+      <el-divider />
       <pre class="version-preview">{{ previewContent }}</pre>
       <template #footer>
         <el-button @click="previewVisible = false">关闭</el-button>
@@ -101,6 +108,8 @@ const rules = {
 }
 
 // 版本管理
+const previewTagName = ref('')
+const previewTitle = ref('')
 const showVersions = ref(false)
 const versionList = ref([])
 const previewVisible = ref(false)
@@ -209,6 +218,13 @@ const handleTagCreated = () => {
 // 预览版本
 const previewVersion = (ver) => {
   previewContent.value = ver.content
+  previewTitle.value = ver.title || '无标题'
+  if (ver.tagId) {
+    const tag = tagList.value.find(t => t.id === ver.tagId)
+    previewTagName.value = tag ? tag.name : ''
+  } else {
+    previewTagName.value = ''
+  }
   previewVisible.value = true
 }
 
@@ -233,7 +249,21 @@ const formatDate = (dateStr) => {
   return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`
 }
 
+const tagList = ref([])
+
+const fetchTags = async () => {
+  try {
+    const res = await axios.get('http://localhost:8080/api/tags')
+    if (res.data.code === 200) {
+      tagList.value = res.data.data || []
+    }
+  } catch (err) {
+    console.error('获取标签列表失败', err)
+  }
+}
+
 onMounted(() => {
+  fetchTags()
   loadNote()
 })
 </script>
@@ -275,5 +305,15 @@ onMounted(() => {
   border-radius: 4px;
   max-height: 400px;
   overflow: auto;
+}
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.preview-title {
+  font-weight: bold;
+  font-size: 18px;
 }
 </style>

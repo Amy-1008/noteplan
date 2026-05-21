@@ -40,7 +40,7 @@ public interface NoteMapper {
     @Select("SELECT * FROM note_version WHERE note_id = #{noteId} AND version_no = #{versionNo}")
     NoteVersion selectVersion(@Param("noteId") Long noteId, @Param("versionNo") Integer versionNo);
 
-    @Insert("INSERT INTO note_version (note_id, version_no, content, save_time) VALUES (#{noteId}, #{versionNo}, #{content}, #{saveTime})")
+    @Insert("INSERT INTO note_version (note_id, version_no, content, save_time, tag_id, title) VALUES (#{noteId}, #{versionNo}, #{content}, #{saveTime}, #{tagId}, #{title})")
     int insertVersion(NoteVersion noteVersion);
 
     @Delete("DELETE FROM note_version WHERE note_id = #{noteId} AND version_no = #{versionNo}")
