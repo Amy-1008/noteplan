@@ -44,6 +44,7 @@
               placeholder="选择开始时间"
               format="YYYY-MM-DD HH:mm"
               value-format="YYYY-MM-DDTHH:mm:ss"
+              @change="handleStartTimeChangeForPeriod"
               style="width: 100%"
           />
         </el-form-item>
@@ -54,6 +55,7 @@
               placeholder="选择结束时间"
               format="YYYY-MM-DD HH:mm"
               value-format="YYYY-MM-DDTHH:mm:ss"
+              @change="handleEndTimeChangeForPeriodDetail"
               style="width: 100%"
           />
         </el-form-item>
@@ -331,6 +333,43 @@ const formatDate = (dateStr) => {
   return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`
 }
 
+// 校验并调整时间段时间
+const validateAndAdjustPeriodTime = () => {
+  if (formData.value.timeType !== 'period') return
+
+  const start = formData.value.startTime ? new Date(formData.value.startTime) : null
+  const end = formData.value.endTime ? new Date(formData.value.endTime) : null
+
+  if (!start) return
+
+  if (!end || end <= start) {
+    const autoEnd = new Date(start.getTime() + 60 * 60 * 1000)
+    formData.value.endTime = formatDateTime(autoEnd)
+    ElMessage.info('结束时间已自动调整为开始时间后1小时')
+  }
+}
+
+// 开始时间变化时的处理
+const handleStartTimeChangeForPeriod = (val) => {
+  if (val && formData.value.timeType === 'period') {
+    validateAndAdjustPeriodTime()
+  }
+}
+
+// 结束时间变化时的处理
+const handleEndTimeChangeForPeriodDetail = (val) => {
+  if (val && formData.value.timeType === 'period') {
+    const end = new Date(val)
+    const start = formData.value.startTime ? new Date(formData.value.startTime) : null
+
+    if (start && end <= start) {
+      const autoEnd = new Date(start.getTime() + 60 * 60 * 1000)
+      formData.value.endTime = formatDateTime(autoEnd)
+      ElMessage.warning('结束时间不能早于或等于开始时间，已自动调整为开始时间后1小时')
+    }
+  }
+}
+
 // 获取日程详情
 const fetchScheduleDetail = async () => {
   try {
@@ -368,6 +407,7 @@ const fetchScheduleDetail = async () => {
         formData.value.timeType = 'period'
         formData.value.startTime = data.startTime
         formData.value.endTime = data.endTime
+        validateAndAdjustPeriodTime()
       }
     }
   } catch (error) {
