@@ -10,19 +10,32 @@ import java.util.Map;
 public interface CalendarMapper {
 
     /**
-     * 查询某月的日程
+     * 查询某月的日程（支持跨天，会在开始日期和结束日期都显示）
      */
     @Select("SELECT " +
-            "DATE(end_time) as event_date, " +
+            "event_date, " +
             "id, " +
             "title, " +
             "'schedule' as type, " +
-            "DATE_FORMAT(end_time, '%H:%i') as event_time, " +
+            "CASE " +
+            "   WHEN start_time IS NOT NULL " +
+            "       THEN CONCAT(DATE_FORMAT(start_time, '%H:%i'), '-', DATE_FORMAT(end_time, '%H:%i')) " +
+            "   ELSE DATE_FORMAT(end_time, '%H:%i') " +
+            "END as event_time, " +
             "CASE WHEN completed = 1 THEN 'completed' ELSE 'pending' END as status " +
-            "FROM schedule " +
-            "WHERE YEAR(end_time) = #{year} " +
-            "AND MONTH(end_time) = #{month} " +
-            "AND status = 0")
+            "FROM ( " +
+            "  SELECT DATE(start_time) as event_date, id, title, start_time, end_time, completed " +
+            "  FROM schedule " +
+            "  WHERE start_time IS NOT NULL " +
+            "    AND YEAR(start_time) = #{year} AND MONTH(start_time) = #{month} " +
+            "    AND status = 0 " +
+            "  UNION " +
+            "  SELECT DATE(end_time) as event_date, id, title, start_time, end_time, completed " +
+            "  FROM schedule " +
+            "  WHERE YEAR(end_time) = #{year} AND MONTH(end_time) = #{month} " +
+            "    AND status = 0 " +
+            ") t " +
+            "ORDER BY event_date, event_time")
     List<Map<String, Object>> getSchedulesByMonth(@Param("year") int year, @Param("month") int month);
 
     /**
@@ -41,7 +54,7 @@ public interface CalendarMapper {
     List<Map<String, Object>> getNotesByMonth(@Param("year") int year, @Param("month") int month);
 
     /**
-     * 查询某天的日程详情
+     * 查询某天的日程详情（支持跨天，开始日期和结束日期当天都能查到）
      */
     @Select("SELECT " +
             "id, " +
@@ -51,11 +64,16 @@ public interface CalendarMapper {
             "       THEN CONCAT(DATE_FORMAT(start_time, '%H:%i'), ' - ', DATE_FORMAT(end_time, '%H:%i')) " +
             "   ELSE DATE_FORMAT(end_time, '%H:%i') " +
             "END as time_display, " +
+            "start_time, " +
+            "end_time, " +
             "remark, " +
             "CASE WHEN completed = 1 THEN 'completed' ELSE 'pending' END as status " +
             "FROM schedule " +
-            "WHERE DATE(end_time) = #{date} " +
-            "AND status = 0 " +
+            "WHERE status = 0 " +
+            "AND ( " +
+            "  (start_time IS NOT NULL AND DATE(start_time) = #{date}) " +
+            "  OR DATE(end_time) = #{date} " +
+            ") " +
             "ORDER BY end_time")
     List<Map<String, Object>> getScheduleDetailByDate(@Param("date") String date);
 
@@ -79,7 +97,7 @@ public interface CalendarMapper {
     List<Map<String, Object>> getNoteDetailByDate(@Param("date") String date);
 
     /**
-     * 获取月份统计数据 - 修复版
+     * 获取月份统计数据
      */
     @Select("SELECT " +
             "COALESCE(SUM(CASE WHEN type = 'schedule' THEN 1 ELSE 0 END), 0) as total_schedules, " +
