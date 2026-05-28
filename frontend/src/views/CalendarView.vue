@@ -98,6 +98,10 @@
             <div v-for="event in day.events" :key="event.id" class="event-item" :class="event.type">
               <span class="event-icon">{{ event.type === 'schedule' ? '📅' : '📝' }}</span>
               <span class="event-title">{{ event.title }}</span>
+              <span v-if="event.isStartDay && !event.isEndDay && event.type === 'schedule'" class="event-badge start">开始</span>
+              <span v-else-if="!event.isStartDay && event.isEndDay && event.type === 'schedule'" class="event-badge end">结束</span>
+              <span v-else-if="event.isMiddleDay && event.type === 'schedule'" class="event-badge middle">│</span>
+              <span v-else-if="event.time && !event.isStartDay && !event.isEndDay && !event.isMiddleDay" class="event-time">{{ event.time }}</span>
             </div>
           </div>
         </div>
@@ -713,5 +717,29 @@ onMounted(() => {
   .event-item { display: none; }
   .view-switch { margin-bottom: 12px; }
   .view-btn { padding: 6px 16px; font-size: 12px; }
+}
+
+.event-badge {
+  font-size: 10px;
+  padding: 0px 4px;
+  border-radius: 10px;
+  margin-left: 4px;
+}
+
+.event-badge.start {
+  background: #4A90D9;
+  color: white;
+}
+
+.event-badge.end {
+  background: #E8A735;
+  color: white;
+}
+
+.event-badge.middle {
+  background: transparent;
+  color: #8BB3CA;
+  font-size: 14px;
+  font-weight: bold;
 }
 </style>
