@@ -12,7 +12,6 @@
           <div class="schedule-time">{{ item.time }}</div>
           <div class="schedule-info">
             <div class="schedule-name">{{ item.title }}</div>
-            <div class="schedule-location" v-if="item.location">{{ item.location }}</div>
             <div class="schedule-remark" v-if="item.remark">{{ item.remark }}</div>
           </div>
           <div class="schedule-status" :class="item.status">
@@ -22,11 +21,11 @@
       </div>
     </div>
 
-    <!-- 备忘录列表 -->
+    <!-- 笔记列表（原备忘录） -->
     <div v-if="notes.length" class="section">
       <div class="section-header">
         <span class="section-icon">📝</span>
-        <span class="section-title">备忘录</span>
+        <span class="section-title">笔记</span>
         <span class="section-count">{{ notes.length }}</span>
       </div>
       <div class="note-list">
@@ -44,8 +43,7 @@
     <!-- 空状态 -->
     <div v-if="!schedules.length && !notes.length" class="empty">
       <div class="empty-icon">📭</div>
-      <div class="empty-text">这一天没有日程或备忘录</div>
-      <div class="empty-hint">点击下方按钮添加</div>
+      <div class="empty-text">这一天没有日程或笔记</div>
     </div>
   </div>
 </template>
@@ -65,10 +63,8 @@ const schedules = ref([]);
 const notes = ref([]);
 
 const loadDetail = async () => {
-  console.log('加载日期:', props.date);
   try {
     const res = await getDayDetail(props.date);
-    console.log('返回数据:', res.data);
     schedules.value = res.data.schedules || [];
     notes.value = res.data.notes || [];
   } catch (error) {
@@ -102,7 +98,7 @@ watch(() => props.date, () => {
 }
 
 .section-icon {
-  font-size: 20px;
+  font-size: 18px;
 }
 
 .section-title {
@@ -120,19 +116,18 @@ watch(() => props.date, () => {
   color: #4A90D9;
 }
 
-/* 日程卡片 */
 .schedule-item {
   display: flex;
   gap: 16px;
-  padding: 16px;
+  padding: 14px;
   background: #FFF5E8;
   border-radius: 12px;
-  margin-bottom: 12px;
-  border-left: 4px solid #E8A735;
+  margin-bottom: 10px;
+  border-left: 3px solid #E8A735;
 }
 
 .schedule-time {
-  min-width: 100px;
+  min-width: 80px;
   font-size: 13px;
   font-weight: 500;
   color: #E8A735;
@@ -146,18 +141,12 @@ watch(() => props.date, () => {
   font-size: 15px;
   font-weight: 500;
   color: #2C6B8F;
-  margin-bottom: 6px;
-}
-
-.schedule-location {
-  font-size: 12px;
-  color: #8BB3CA;
   margin-bottom: 4px;
 }
 
 .schedule-remark {
   font-size: 12px;
-  color: #A0C4D8;
+  color: #8BB3CA;
 }
 
 .schedule-status {
@@ -177,13 +166,12 @@ watch(() => props.date, () => {
   color: #52C41A;
 }
 
-/* 备忘录卡片 */
 .note-item {
-  padding: 16px;
+  padding: 14px;
   background: #E8FCE8;
   border-radius: 12px;
-  margin-bottom: 12px;
-  border-left: 4px solid #52C41A;
+  margin-bottom: 10px;
+  border-left: 3px solid #52C41A;
 }
 
 .note-title {
@@ -196,15 +184,14 @@ watch(() => props.date, () => {
 .note-time {
   font-size: 11px;
   color: #8BB3CA;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .note-content {
   font-size: 13px;
   color: #5A7E9A;
   line-height: 1.5;
-  white-space: pre-wrap;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .note-tags {
@@ -221,7 +208,6 @@ watch(() => props.date, () => {
   border-radius: 16px;
 }
 
-/* 空状态 */
 .empty {
   text-align: center;
   padding: 60px 20px;
@@ -236,11 +222,5 @@ watch(() => props.date, () => {
 .empty-text {
   font-size: 14px;
   color: #8BB3CA;
-  margin-bottom: 8px;
-}
-
-.empty-hint {
-  font-size: 12px;
-  color: #B8D4E3;
 }
 </style>

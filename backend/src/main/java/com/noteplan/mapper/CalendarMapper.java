@@ -60,7 +60,7 @@ public interface CalendarMapper {
     List<Map<String, Object>> getScheduleDetailByDate(@Param("date") String date);
 
     /**
-     * 查询某天的笔记详情（带标签）- 已修复 GROUP BY 问题
+     * 查询某天的笔记详情（带标签）
      */
     @Select("SELECT " +
             "n.id, " +
@@ -79,13 +79,12 @@ public interface CalendarMapper {
     List<Map<String, Object>> getNoteDetailByDate(@Param("date") String date);
 
     /**
-     * 获取月份统计数据
+     * 获取月份统计数据 - 修复版
      */
     @Select("SELECT " +
-            "COUNT(*) as total_events, " +
-            "SUM(CASE WHEN type = 'schedule' THEN 1 ELSE 0 END) as total_schedules, " +
-            "SUM(CASE WHEN type = 'note' THEN 1 ELSE 0 END) as total_notes, " +
-            "COUNT(DISTINCT event_date) as marked_days " +
+            "COALESCE(SUM(CASE WHEN type = 'schedule' THEN 1 ELSE 0 END), 0) as total_schedules, " +
+            "COALESCE(SUM(CASE WHEN type = 'note' THEN 1 ELSE 0 END), 0) as total_notes, " +
+            "COALESCE(COUNT(DISTINCT event_date), 0) as marked_days " +
             "FROM ( " +
             "  SELECT DATE(end_time) as event_date, 'schedule' as type FROM schedule " +
             "  WHERE YEAR(end_time) = #{year} AND MONTH(end_time) = #{month} AND status = 0 " +

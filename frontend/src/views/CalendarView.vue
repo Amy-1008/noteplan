@@ -4,12 +4,11 @@
     <div class="top-bar">
       <div class="logo-section">
         <h1>📅 我的日历</h1>
-        <p>日程 · 备忘录</p>
+        <p>日程 · 笔记</p>
       </div>
       <div class="month-section">
         <button class="month-btn" @click="prevMonth">‹</button>
 
-        <!-- 年月下拉菜单 -->
         <div class="year-month-selector">
           <select v-model="selectedYear" @change="onYearChange" class="year-select">
             <option v-for="year in yearOptions" :key="year" :value="year">
@@ -30,21 +29,9 @@
 
     <!-- 视图切换 -->
     <div class="view-switch">
-      <button
-          class="view-btn"
-          :class="{ active: viewMode === 'month' }"
-          @click="switchView('month')"
-      >月视图</button>
-      <button
-          class="view-btn"
-          :class="{ active: viewMode === 'week' }"
-          @click="switchView('week')"
-      >周视图</button>
-      <button
-          class="view-btn"
-          :class="{ active: viewMode === 'day' }"
-          @click="switchView('day')"
-      >日视图</button>
+      <button class="view-btn" :class="{ active: viewMode === 'month' }" @click="switchView('month')">月视图</button>
+      <button class="view-btn" :class="{ active: viewMode === 'week' }" @click="switchView('week')">周视图</button>
+      <button class="view-btn" :class="{ active: viewMode === 'day' }" @click="switchView('day')">日视图</button>
     </div>
 
     <!-- 图例 -->
@@ -55,7 +42,7 @@
       </div>
       <div class="legend-item">
         <span class="legend-badge note-badge"></span>
-        <span>备忘录</span>
+        <span>笔记</span>
       </div>
       <div class="legend-item">
         <span class="legend-badge today-badge"></span>
@@ -63,7 +50,7 @@
       </div>
     </div>
 
-    <!-- 星期标题（月视图和周视图都显示） -->
+    <!-- 星期标题 -->
     <div class="weekdays" v-if="viewMode !== 'day'">
       <div v-for="week in weekdays" :key="week" class="weekday">{{ week }}</div>
     </div>
@@ -75,10 +62,7 @@
             v-for="(day, idx) in calendarDays"
             :key="idx"
             class="calendar-day"
-            :class="{
-            'other-month': day.isOtherMonth,
-            'today': day.isToday
-          }"
+            :class="{ 'other-month': day.isOtherMonth, 'today': day.isToday }"
             @click="openDayDetail(day)"
         >
           <div class="day-header">
@@ -86,12 +70,9 @@
             <span v-if="day.isToday" class="today-badge-mark">今天</span>
           </div>
           <div class="day-events">
-            <div v-for="event in day.events.slice(0, 2)" :key="event.id" class="event-item" :class="event.type">
-              <span class="event-type">{{ event.type === 'schedule' ? '📅' : '📝' }}</span>
+            <div v-for="event in day.events" :key="event.id" class="event-item" :class="event.type">
+              <span class="event-icon">{{ event.type === 'schedule' ? '📅' : '📝' }}</span>
               <span class="event-title">{{ event.title }}</span>
-            </div>
-            <div v-if="day.eventCount > 2" class="more-events">
-              +{{ day.eventCount - 2 }}
             </div>
           </div>
         </div>
@@ -105,9 +86,7 @@
             v-for="(day, idx) in weekDays"
             :key="idx"
             class="calendar-day"
-            :class="{
-            'today': day.isToday
-          }"
+            :class="{ 'today': day.isToday }"
             @click="openDayDetail(day)"
         >
           <div class="day-header">
@@ -116,12 +95,9 @@
             <span v-if="day.isToday" class="today-badge-mark">今天</span>
           </div>
           <div class="day-events">
-            <div v-for="event in day.events.slice(0, 3)" :key="event.id" class="event-item" :class="event.type">
-              <span class="event-type">{{ event.type === 'schedule' ? '📅' : '📝' }}</span>
+            <div v-for="event in day.events" :key="event.id" class="event-item" :class="event.type">
+              <span class="event-icon">{{ event.type === 'schedule' ? '📅' : '📝' }}</span>
               <span class="event-title">{{ event.title }}</span>
-            </div>
-            <div v-if="day.eventCount > 3" class="more-events">
-              +{{ day.eventCount - 3 }}
             </div>
           </div>
         </div>
@@ -140,21 +116,19 @@
           <div>这一天没有安排</div>
         </div>
         <div v-for="event in currentDayData.events" :key="event.id" class="day-event-item" :class="event.type">
-          <div class="day-event-type">{{ event.type === 'schedule' ? '📅 日程' : '📝 备忘录' }}</div>
+          <div class="day-event-type">{{ event.type === 'schedule' ? '📅 日程' : '📝 笔记' }}</div>
           <div class="day-event-title">{{ event.title }}</div>
           <div class="day-event-time" v-if="event.time">{{ event.time }}</div>
           <div class="day-event-content" v-if="event.content">{{ event.content }}</div>
+          <div class="day-event-tags" v-if="event.tags && event.tags.length">
+            <span v-for="tag in event.tags" :key="tag" class="tag">{{ tag }}</span>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- 详情弹窗 -->
-    <el-drawer
-        v-model="drawerVisible"
-        :title="selectedDateTitle"
-        direction="rtl"
-        size="480px"
-    >
+    <el-drawer v-model="drawerVisible" :title="selectedDateTitle" direction="rtl" size="480px">
       <DailyDetail :date="selectedDate" />
     </el-drawer>
   </div>
@@ -179,11 +153,10 @@ const selectedDate = ref('');
 const selectedDateTitle = ref('');
 const allEvents = ref({});
 
-const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 const monthOptions = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
 const yearOptions = ref([]);
 
-// 生成年份选项（当前年份前后10年）
 for (let i = dayjs().year() - 10; i <= dayjs().year() + 10; i++) {
   yearOptions.value.push(i);
 }
@@ -197,8 +170,10 @@ const loadMonthData = async () => {
   try {
     const res = await getMonthData(currentYear.value, currentMonth.value);
     allEvents.value = res.data.events || {};
-    generateCalendar();
-    if (viewMode.value === 'week') {
+
+    if (viewMode.value === 'month') {
+      generateCalendar();
+    } else if (viewMode.value === 'week') {
       generateWeekView();
     } else if (viewMode.value === 'day') {
       generateDayView();
@@ -219,15 +194,14 @@ const generateCalendar = () => {
     const currentDate = startDay.add(i, 'day');
     const isCurrentMonth = currentDate.month() + 1 === currentMonth.value;
     const dateKey = currentDate.format('YYYY-MM-DD');
-    const dayEvents = allEvents.value[dateKey] || [];
+    const events = allEvents.value[dateKey] || [];
 
     days.push({
       date: dateKey,
       dayNum: currentDate.date(),
       isToday: currentDate.isSame(dayjs(), 'day'),
       isOtherMonth: !isCurrentMonth,
-      events: dayEvents,
-      eventCount: dayEvents.length
+      events: events.slice(0, 3)
     });
   }
 
@@ -242,15 +216,14 @@ const generateWeekView = () => {
   for (let i = 0; i < 7; i++) {
     const currentDate = startOfWeek.add(i, 'day');
     const dateKey = currentDate.format('YYYY-MM-DD');
-    const dayEvents = allEvents.value[dateKey] || [];
+    const events = allEvents.value[dateKey] || [];
 
     days.push({
       date: dateKey,
       dayNum: currentDate.date(),
       weekday: currentDate.day(),
       isToday: currentDate.isSame(dayjs(), 'day'),
-      events: dayEvents,
-      eventCount: dayEvents.length
+      events: events.slice(0, 3)
     });
   }
 
@@ -260,12 +233,12 @@ const generateWeekView = () => {
 const generateDayView = () => {
   const currentDate = dayjs(`${currentYear.value}-${currentMonth.value}-01`);
   const dateKey = currentDate.format('YYYY-MM-DD');
-  const dayEvents = allEvents.value[dateKey] || [];
+  const events = allEvents.value[dateKey] || [];
 
   currentDayData.value = {
     dateTitle: currentDate.format('YYYY年MM月DD日'),
     weekday: getShortWeekday(currentDate.day()),
-    events: dayEvents
+    events: events
   };
 };
 
@@ -279,6 +252,7 @@ const switchView = (view) => {
 };
 
 const openDayDetail = (day) => {
+  if (day.isOtherMonth) return;
   selectedDate.value = day.date;
   selectedDateTitle.value = dayjs(day.date).format('YYYY年MM月DD日 (dddd)');
   drawerVisible.value = true;
@@ -347,7 +321,6 @@ onMounted(() => {
   padding: 24px 32px;
 }
 
-/* 顶部栏 */
 .top-bar {
   display: flex;
   justify-content: space-between;
@@ -394,7 +367,6 @@ onMounted(() => {
   color: white;
 }
 
-/* 年月下拉菜单 */
 .year-month-selector {
   display: flex;
   gap: 8px;
@@ -416,10 +388,6 @@ onMounted(() => {
   text-align: center;
 }
 
-.year-select:hover, .month-select:hover {
-  color: #4A90D9;
-}
-
 .today-btn {
   padding: 6px 20px;
   border-radius: 25px;
@@ -438,7 +406,6 @@ onMounted(() => {
   color: white;
 }
 
-/* 视图切换 */
 .view-switch {
   display: flex;
   gap: 10px;
@@ -471,7 +438,6 @@ onMounted(() => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-/* 图例 */
 .legend {
   display: flex;
   justify-content: flex-start;
@@ -512,7 +478,6 @@ onMounted(() => {
   border: 1px solid #4A90D9;
 }
 
-/* 星期 */
 .weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -530,7 +495,6 @@ onMounted(() => {
   border-radius: 10px;
 }
 
-/* 日历网格容器 */
 .calendar-grid-wrapper {
   background: rgba(255, 255, 255, 0.4);
   border-radius: 20px;
@@ -573,7 +537,7 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .day-number {
@@ -601,19 +565,18 @@ onMounted(() => {
   border-radius: 12px;
 }
 
-/* 事件列表 */
 .day-events {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
 }
 
 .event-item {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   font-size: 10px;
-  padding: 4px 6px;
+  padding: 3px 6px;
   border-radius: 6px;
   white-space: nowrap;
   overflow: hidden;
@@ -622,16 +585,16 @@ onMounted(() => {
 
 .event-item.schedule {
   background: #FFF0D4;
-  border-left: 2px solid #E8A735;
+  color: #C47A0A;
 }
 
 .event-item.note {
   background: #E0F5E0;
-  border-left: 2px solid #52C41A;
+  color: #2E8B0A;
 }
 
-.event-type {
-  font-size: 9px;
+.event-icon {
+  font-size: 10px;
 }
 
 .event-title {
@@ -639,24 +602,8 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   font-weight: 500;
-  font-size: 10px;
 }
 
-.event-item.schedule .event-title {
-  color: #C47A0A;
-}
-
-.event-item.note .event-title {
-  color: #2E8B0A;
-}
-
-.more-events {
-  font-size: 9px;
-  color: #8BB3CA;
-  padding: 2px 6px;
-}
-
-/* 日视图样式 */
 .day-view-wrapper {
   background: rgba(255, 255, 255, 0.4);
   border-radius: 20px;
@@ -703,7 +650,7 @@ onMounted(() => {
 }
 
 .day-event-type {
-  font-size: 11px;
+  font-size: 12px;
   color: #8BB3CA;
   margin-bottom: 8px;
 }
@@ -727,6 +674,21 @@ onMounted(() => {
   line-height: 1.5;
 }
 
+.day-event-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.tag {
+  font-size: 11px;
+  color: #52C41A;
+  background: #E0F5E0;
+  padding: 2px 10px;
+  border-radius: 16px;
+}
+
 .empty-day {
   text-align: center;
   padding: 60px 20px;
@@ -739,59 +701,17 @@ onMounted(() => {
   opacity: 0.5;
 }
 
-/* 响应式 */
 @media (max-width: 900px) {
-  .calendar-page {
-    padding: 16px;
-  }
-
-  .calendar-grid-wrapper {
-    padding: 10px;
-  }
-
-  .calendar-grid {
-    gap: 6px;
-  }
-
-  .calendar-day {
-    min-height: 90px;
-    padding: 8px;
-  }
-
-  .day-number {
-    font-size: 14px;
-  }
+  .calendar-page { padding: 16px; }
+  .calendar-grid-wrapper { padding: 10px; }
+  .calendar-grid { gap: 6px; }
+  .calendar-day { min-height: 90px; padding: 8px; }
 }
 
 @media (max-width: 700px) {
-  .calendar-day {
-    min-height: 70px;
-  }
-
-  .event-item {
-    display: none;
-  }
-
-  .more-events {
-    display: none;
-  }
-
-  .view-switch {
-    margin-bottom: 12px;
-  }
-
-  .view-btn {
-    padding: 6px 16px;
-    font-size: 12px;
-  }
-
-  .year-month-selector {
-    padding: 2px 8px;
-  }
-
-  .year-select, .month-select {
-    font-size: 12px;
-    padding: 4px 4px;
-  }
+  .calendar-day { min-height: 70px; }
+  .event-item { display: none; }
+  .view-switch { margin-bottom: 12px; }
+  .view-btn { padding: 6px 16px; font-size: 12px; }
 }
 </style>
