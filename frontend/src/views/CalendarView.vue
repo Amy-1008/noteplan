@@ -70,9 +70,14 @@
             <span v-if="day.isToday" class="today-badge-mark">今天</span>
           </div>
           <div class="day-events">
-            <div v-for="event in day.events" :key="event.id" class="event-item" :class="event.type">
-              <span class="event-icon">{{ event.type === 'schedule' ? '📅' : '📝' }}</span>
-              <span class="event-title">{{ event.title }}</span>
+            <template v-for="(event, idx) in day.events.slice(0, 2)" :key="event.id">
+              <div class="event-item" :class="event.type">
+                <span class="event-dot" :class="event.type"></span>
+                <span class="event-title">{{ truncateTitle(event.title, 5) }}</span>
+              </div>
+            </template>
+            <div v-if="day.events.length > 2" class="more-events">
+              +{{ day.events.length - 2 }}
             </div>
           </div>
         </div>
@@ -95,13 +100,14 @@
             <span v-if="day.isToday" class="today-badge-mark">今天</span>
           </div>
           <div class="day-events">
-            <div v-for="event in day.events" :key="event.id" class="event-item" :class="event.type">
-              <span class="event-icon">{{ event.type === 'schedule' ? '📅' : '📝' }}</span>
-              <span class="event-title">{{ event.title }}</span>
-              <span v-if="event.isStartDay && !event.isEndDay && event.type === 'schedule'" class="event-badge start">开始</span>
-              <span v-else-if="!event.isStartDay && event.isEndDay && event.type === 'schedule'" class="event-badge end">结束</span>
-              <span v-else-if="event.isMiddleDay && event.type === 'schedule'" class="event-badge middle">│</span>
-              <span v-else-if="event.time && !event.isStartDay && !event.isEndDay && !event.isMiddleDay" class="event-time">{{ event.time }}</span>
+            <template v-for="(event, idx) in day.events.slice(0, 2)" :key="event.id">
+              <div class="event-item" :class="event.type">
+                <span class="event-dot" :class="event.type"></span>
+                <span class="event-title">{{ truncateTitle(event.title, 5) }}</span>
+              </div>
+            </template>
+            <div v-if="day.events.length > 2" class="more-events">
+              +{{ day.events.length - 2 }}
             </div>
           </div>
         </div>
@@ -153,7 +159,7 @@ const calendarDays = ref([]);
 const weekDays = ref([]);
 const currentDayData = ref({ dateTitle: '', weekday: '', events: [] });
 const drawerVisible = ref(false);
-const selectedDate = ref('');
+const selectedDate = ref(dayjs().format('YYYY-MM-DD'));
 const selectedDateTitle = ref('');
 const allEvents = ref({});
 
@@ -165,6 +171,11 @@ for (let i = dayjs().year() - 10; i <= dayjs().year() + 10; i++) {
   yearOptions.value.push(i);
 }
 
+const truncateTitle = (title, maxLen) => {
+  if (!title) return '';
+  return title.length > maxLen ? title.slice(0, maxLen) + '...' : title;
+};
+
 const getShortWeekday = (weekday) => {
   const short = ['日', '一', '二', '三', '四', '五', '六'];
   return short[weekday];
@@ -173,14 +184,21 @@ const getShortWeekday = (weekday) => {
 const loadMonthData = async () => {
   try {
     const res = await getMonthData(currentYear.value, currentMonth.value);
-    allEvents.value = res.data.events || {};
+    allEvents.value = res.data?.events || {};
 
     if (viewMode.value === 'month') {
       generateCalendar();
     } else if (viewMode.value === 'week') {
       generateWeekView();
     } else if (viewMode.value === 'day') {
-      generateDayView();
+      const targetDate = selectedDate.value ? dayjs(selectedDate.value) : dayjs();
+      const dateKey = targetDate.format('YYYY-MM-DD');
+      const events = allEvents.value[dateKey] || [];
+      currentDayData.value = {
+        dateTitle: targetDate.format('YYYY年MM月DD日'),
+        weekday: getShortWeekday(targetDate.day()),
+        events: events
+      };
     }
   } catch (error) {
     console.error('加载失败', error);
@@ -205,7 +223,7 @@ const generateCalendar = () => {
       dayNum: currentDate.date(),
       isToday: currentDate.isSame(dayjs(), 'day'),
       isOtherMonth: !isCurrentMonth,
-      events: events.slice(0, 3)
+      events: events
     });
   }
 
@@ -227,7 +245,7 @@ const generateWeekView = () => {
       dayNum: currentDate.date(),
       weekday: currentDate.day(),
       isToday: currentDate.isSame(dayjs(), 'day'),
-      events: events.slice(0, 3)
+      events: events
     });
   }
 
@@ -235,13 +253,13 @@ const generateWeekView = () => {
 };
 
 const generateDayView = () => {
-  const currentDate = dayjs(`${currentYear.value}-${currentMonth.value}-01`);
-  const dateKey = currentDate.format('YYYY-MM-DD');
+  const targetDate = selectedDate.value ? dayjs(selectedDate.value) : dayjs();
+  const dateKey = targetDate.format('YYYY-MM-DD');
   const events = allEvents.value[dateKey] || [];
 
   currentDayData.value = {
-    dateTitle: currentDate.format('YYYY年MM月DD日'),
-    weekday: getShortWeekday(currentDate.day()),
+    dateTitle: targetDate.format('YYYY年MM月DD日'),
+    weekday: getShortWeekday(targetDate.day()),
     events: events
   };
 };
@@ -260,6 +278,15 @@ const openDayDetail = (day) => {
   selectedDate.value = day.date;
   selectedDateTitle.value = dayjs(day.date).format('YYYY年MM月DD日 (dddd)');
   drawerVisible.value = true;
+
+  if (viewMode.value === 'day') {
+    const events = allEvents.value[day.date] || [];
+    currentDayData.value = {
+      dateTitle: dayjs(day.date).format('YYYY年MM月DD日'),
+      weekday: getShortWeekday(dayjs(day.date).day()),
+      events: events
+    };
+  }
 };
 
 const prevMonth = () => {
@@ -301,11 +328,18 @@ const today = () => {
   currentMonth.value = dayjs().month() + 1;
   selectedYear.value = currentYear.value;
   selectedMonth.value = currentMonth.value;
+  selectedDate.value = dayjs().format('YYYY-MM-DD');
+
   loadMonthData();
   if (viewMode.value === 'week') {
     generateWeekView();
   } else if (viewMode.value === 'day') {
-    generateDayView();
+    const events = allEvents.value[selectedDate.value] || [];
+    currentDayData.value = {
+      dateTitle: dayjs().format('YYYY年MM月DD日'),
+      weekday: getShortWeekday(dayjs().day()),
+      events: events
+    };
   }
 };
 
@@ -468,13 +502,11 @@ onMounted(() => {
 }
 
 .schedule-badge {
-  background: #FFF0D4;
-  border-left: 3px solid #E8A735;
+  background: #E8A735;
 }
 
 .note-badge {
-  background: #E0F5E0;
-  border-left: 3px solid #52C41A;
+  background: #52C41A;
 }
 
 .today-badge {
@@ -514,7 +546,7 @@ onMounted(() => {
 .calendar-day {
   background: white;
   border-radius: 12px;
-  min-height: 110px;
+  min-height: 100px;
   padding: 10px;
   cursor: pointer;
   transition: all 0.2s;
@@ -578,8 +610,8 @@ onMounted(() => {
 .event-item {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 10px;
+  gap: 6px;
+  font-size: 11px;
   padding: 3px 6px;
   border-radius: 6px;
   white-space: nowrap;
@@ -587,18 +619,19 @@ onMounted(() => {
   text-overflow: ellipsis;
 }
 
-.event-item.schedule {
-  background: #FFF0D4;
-  color: #C47A0A;
+.event-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
-.event-item.note {
-  background: #E0F5E0;
-  color: #2E8B0A;
+.event-dot.schedule {
+  background: #E8A735;
 }
 
-.event-icon {
-  font-size: 10px;
+.event-dot.note {
+  background: #52C41A;
 }
 
 .event-title {
@@ -606,6 +639,14 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   font-weight: 500;
+  font-size: 11px;
+  color: #2C6B8F;
+}
+
+.more-events {
+  font-size: 10px;
+  color: #8BB3CA;
+  padding: 2px 6px;
 }
 
 .day-view-wrapper {
@@ -717,29 +758,5 @@ onMounted(() => {
   .event-item { display: none; }
   .view-switch { margin-bottom: 12px; }
   .view-btn { padding: 6px 16px; font-size: 12px; }
-}
-
-.event-badge {
-  font-size: 10px;
-  padding: 0px 4px;
-  border-radius: 10px;
-  margin-left: 4px;
-}
-
-.event-badge.start {
-  background: #4A90D9;
-  color: white;
-}
-
-.event-badge.end {
-  background: #E8A735;
-  color: white;
-}
-
-.event-badge.middle {
-  background: transparent;
-  color: #8BB3CA;
-  font-size: 14px;
-  font-weight: bold;
 }
 </style>
