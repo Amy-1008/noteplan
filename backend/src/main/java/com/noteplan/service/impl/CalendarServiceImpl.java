@@ -198,6 +198,13 @@ public class CalendarServiceImpl implements CalendarService {
             dto.setTime((String) item.get("time_display"));
             dto.setRemark((String) item.get("remark"));
             dto.setStatus((String) item.get("status"));
+
+            String tagsStr = (String) item.get("tags");
+            if (tagsStr != null && !tagsStr.isEmpty()) {
+                dto.setTags(Arrays.asList(tagsStr.split(",")));
+            } else {
+                dto.setTags(new ArrayList<>());
+            }
             schedules.add(dto);
         }
 
@@ -208,6 +215,7 @@ public class CalendarServiceImpl implements CalendarService {
             dto.setTitle((String) item.get("title"));
             dto.setContent((String) item.get("content"));
             dto.setCreateTime((String) item.get("time_only"));
+
             String tagsStr = (String) item.get("tags");
             if (tagsStr != null && !tagsStr.isEmpty()) {
                 dto.setTags(Arrays.asList(tagsStr.split(",")));

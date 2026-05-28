@@ -15,6 +15,7 @@ public class DayDetailDTO {
         private String time;
         private String remark;
         private String status;
+        private List<String> tags;
     }
 
     @Data

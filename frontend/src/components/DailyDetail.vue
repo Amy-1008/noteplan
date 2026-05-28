@@ -13,6 +13,9 @@
           <div class="schedule-info">
             <div class="schedule-name">{{ item.title }}</div>
             <div class="schedule-remark" v-if="item.remark">{{ item.remark }}</div>
+            <div class="schedule-tags" v-if="item.tags && item.tags.length">
+              <span v-for="tag in item.tags" :key="tag" class="tag">#{{ tag }}</span>
+            </div>
           </div>
           <div class="schedule-status" :class="item.status">
             {{ item.status === 'completed' ? '已完成' : '待完成' }}
@@ -21,7 +24,7 @@
       </div>
     </div>
 
-    <!-- 笔记列表（原备忘录） -->
+    <!-- 笔记列表 -->
     <div v-if="notes.length" class="section">
       <div class="section-header">
         <span class="section-icon">📝</span>
@@ -147,6 +150,22 @@ watch(() => props.date, () => {
 .schedule-remark {
   font-size: 12px;
   color: #8BB3CA;
+  margin-bottom: 6px;
+}
+
+.schedule-tags, .note-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.schedule-tags .tag, .note-tags .tag {
+  font-size: 10px;
+  color: #E8A735;
+  background: #FFF0D4;
+  padding: 2px 8px;
+  border-radius: 12px;
 }
 
 .schedule-status {
@@ -194,18 +213,9 @@ watch(() => props.date, () => {
   margin-bottom: 8px;
 }
 
-.note-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.tag {
-  font-size: 11px;
+.note-tags .tag {
   color: #52C41A;
   background: white;
-  padding: 2px 12px;
-  border-radius: 16px;
 }
 
 .empty {

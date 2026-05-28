@@ -50,31 +50,30 @@ public interface CalendarMapper {
             "AND MONTH(create_time) = #{month} " +
             "AND status = 0")
     List<Map<String, Object>> getNotesByMonth(@Param("year") int year, @Param("month") int month);
-
+    /**
+     * 查询某天的日程详情
+     */
     @Select("SELECT " +
-            "id, " +
-            "title, " +
+            "s.id, " +
+            "s.title, " +
             "CASE " +
-            "   WHEN start_time IS NOT NULL " +
-            "       THEN CONCAT(DATE_FORMAT(start_time, '%H:%i'), ' - ', DATE_FORMAT(end_time, '%H:%i')) " +
-            "   ELSE DATE_FORMAT(end_time, '%H:%i') " +
+            "   WHEN s.start_time IS NOT NULL " +
+            "       THEN CONCAT(DATE_FORMAT(s.start_time, '%H:%i'), ' - ', DATE_FORMAT(s.end_time, '%H:%i')) " +
+            "   ELSE DATE_FORMAT(s.end_time, '%H:%i') " +
             "END as time_display, " +
-            "remark, " +
-            "CASE WHEN completed = 1 THEN 'completed' ELSE 'pending' END as status " +
-            "FROM schedule " +
-            "WHERE DATE(end_time) = #{date} " +
-            "AND status = 0 " +
-            "UNION " +
-            "SELECT " +
-            "id, " +
-            "title, " +
-            "CONCAT(DATE_FORMAT(start_time, '%H:%i'), ' - ', DATE_FORMAT(end_time, '%H:%i')) as time_display, " +
-            "remark, " +
-            "CASE WHEN completed = 1 THEN 'completed' ELSE 'pending' END as status " +
-            "FROM schedule " +
-            "WHERE start_time IS NOT NULL " +
-            "AND DATE(start_time) = #{date} " +
-            "AND status = 0")
+            "s.remark, " +
+            "CASE WHEN s.completed = 1 THEN 'completed' ELSE 'pending' END as status, " +
+            "GROUP_CONCAT(DISTINCT t.name) as tags " +
+            "FROM schedule s " +
+            "LEFT JOIN note_tag nt ON s.id = nt.target_id AND nt.target_type = 'SCHEDULE' " +
+            "LEFT JOIN tag t ON nt.tag_id = t.id " +
+            "WHERE s.status = 0 " +
+            "AND ( " +
+            "  (s.start_time IS NOT NULL AND DATE(s.start_time) = #{date}) " +
+            "  OR DATE(s.end_time) = #{date} " +
+            ") " +
+            "GROUP BY s.id, s.title, s.start_time, s.end_time, s.remark, s.completed " +
+            "ORDER BY s.end_time")
     List<Map<String, Object>> getScheduleDetailByDate(@Param("date") String date);
 
     @Select("SELECT " +
