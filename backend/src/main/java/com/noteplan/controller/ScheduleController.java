@@ -27,17 +27,32 @@ public class ScheduleController {
     public Result<List<Schedule>> list(@RequestParam(required = false) String ids) {
         List<Schedule> list;
         if (ids != null && !ids.isEmpty()) {
-            // 解析 ids 参数，例如 "1,2,3"
-            List<Long> idList = Arrays.stream(ids.split(","))
-                    .map(String::trim)
-                    .filter(s -> !s.isEmpty())
-                    .map(Long::parseLong)
-                    .collect(Collectors.toList());
+            // 解析 ids 参数，例如 "1,2,3"，并对非法输入做友好提示
+            List<Long> idList;
+            try {
+                idList = Arrays.stream(ids.split(","))
+                        .map(String::trim)
+                        .filter(s -> !s.isEmpty())
+                        .map(Long::valueOf)
+                        .collect(Collectors.toList());
+            } catch (NumberFormatException e) {
+                return Result.error(400, "ids 参数格式错误，应为逗号分隔的数字列表");
+            }
+
+            if (idList.isEmpty()) {
+                return Result.error(400, "ids 参数不能为空");
+            }
+
             list = scheduleService.getSchedulesByIds(idList);
         } else {
             list = scheduleService.getAllSchedules();
         }
         return Result.success(list);
+    }
+
+    @GetMapping("/search")
+    public Result<List<Schedule>> search(@RequestParam String keyword) {
+        return Result.success(scheduleService.search(keyword));
     }
 
     // 新增日程

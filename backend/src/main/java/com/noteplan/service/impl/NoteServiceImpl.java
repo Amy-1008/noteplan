@@ -1,10 +1,10 @@
 package com.noteplan.service.impl;
 
 import com.noteplan.entity.Note;
-import com.noteplan.entity.NoteTag;
 import com.noteplan.entity.NoteVersion;
 import com.noteplan.mapper.NoteMapper;
 import com.noteplan.mapper.NoteTagMapper;
+import com.noteplan.mapper.ScheduleNoteMapper;
 import com.noteplan.service.NoteService;
 import com.noteplan.service.TagService;
 
@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class NoteServiceImpl implements NoteService {
@@ -32,13 +33,19 @@ public class NoteServiceImpl implements NoteService {
     @Autowired
     private NoteTagMapper noteTagMapper;
 
+    @Autowired
+    private ScheduleNoteMapper scheduleNoteMapper;
+
     private static final int MAX_VERSIONS = 3;
 
     @Override
     @Transactional
     public Note createNote(Note note) {
         if (note.getTitle() == null || note.getTitle().trim().isEmpty()) {
-            String content = note.getContent();
+            String content = Objects.toString(note.getContent(), "").trim();
+            if (content.isEmpty()) {
+                content = "无标题笔记";
+            }
             String title = content.length() > 50 ? content.substring(0, 50) : content;
             note.setTitle(title);
         }
@@ -48,7 +55,8 @@ public class NoteServiceImpl implements NoteService {
         note.setRank(0);
         noteMapper.insert(note);
 
-        //saveVersion(note.getId(), note.getContent(), 1);
+        Long currentTagId = noteTagMapper.selectTagIdByTarget(note.getId(), "NOTE");
+        saveVersion(note.getId(), note.getContent(), 1, currentTagId, note.getTitle());
         log.info("创建笔记成功: id={}, title={}", note.getId(), note.getTitle());
         return note;
     }
@@ -87,6 +95,8 @@ public class NoteServiceImpl implements NoteService {
         if (note == null) {
             throw new RuntimeException("笔记不存在: id=" + id);
         }
+        scheduleNoteMapper.deleteByNoteId(id);
+        noteMapper.deleteAllVersions(id);
         noteMapper.softDeleteById(id);
         noteTagMapper.deleteByTarget(id, "NOTE");
         log.info("删除笔记成功: id={}", id);
@@ -148,6 +158,26 @@ public class NoteServiceImpl implements NoteService {
 
         log.info("恢复笔记版本: noteId={}, fromVersionNo={}, newVersionNo={}", noteId, versionNo, nextVersionNo);
         return currentNote;
+    }
+
+    @Override
+    @Transactional
+    public void deleteVersion(Long noteId, Integer versionNo) {
+        getNoteById(noteId);
+        NoteVersion targetVersion = noteMapper.selectVersion(noteId, versionNo);
+        if (targetVersion == null) {
+            throw new RuntimeException("版本不存在: noteId=" + noteId + ", versionNo=" + versionNo);
+        }
+        noteMapper.deleteVersion(noteId, versionNo);
+        log.info("删除笔记版本成功: noteId={}, versionNo={}", noteId, versionNo);
+    }
+
+    @Override
+    public List<Note> search(String keyword) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return getAllNotes();
+        }
+        return noteMapper.search(keyword.trim());
     }
 
     private void saveVersion(Long noteId, String content, int versionNo, Long tagId, String title) {

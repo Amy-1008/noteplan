@@ -18,4 +18,7 @@ public interface NoteService {
     // 版本管理
     List<NoteVersion> getVersionsByNoteId(Long noteId);
     Note recoverVersion(Long noteId, Integer versionNo);
+    void deleteVersion(Long noteId, Integer versionNo);
+
+    List<Note> search(String keyword);
 }

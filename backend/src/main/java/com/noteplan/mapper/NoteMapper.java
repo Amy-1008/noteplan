@@ -46,7 +46,13 @@ public interface NoteMapper {
     @Delete("DELETE FROM note_version WHERE note_id = #{noteId} AND version_no = #{versionNo}")
     int deleteVersion(@Param("noteId") Long noteId, @Param("versionNo") Integer versionNo);
 
+    @Delete("DELETE FROM note_version WHERE note_id = #{noteId}")
+    int deleteAllVersions(@Param("noteId") Long noteId);
+
     // 获取当前最大版本号
     @Select("SELECT COALESCE(MAX(version_no), 0) FROM note_version WHERE note_id = #{noteId}")
     Integer getMaxVersionNo(Long noteId);
+
+    @Select("SELECT * FROM note WHERE status = 0 AND (title LIKE CONCAT('%', #{keyword}, '%') OR content LIKE CONCAT('%', #{keyword}, '%')) ORDER BY update_time DESC")
+    List<Note> search(@Param("keyword") String keyword);
 }

@@ -48,4 +48,7 @@ public interface ScheduleMapper {
     // 删除
     @Update("UPDATE schedule SET status = 1 WHERE id = #{id}")
     int deleteById(Long id);
+
+    @Select("SELECT * FROM schedule WHERE status = 0 AND (title LIKE CONCAT('%', #{keyword}, '%') OR remark LIKE CONCAT('%', #{keyword}, '%')) ORDER BY update_time DESC")
+    List<Schedule> search(@Param("keyword") String keyword);
 }

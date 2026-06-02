@@ -17,4 +17,7 @@ public interface ScheduleNoteMapper {
 
     @Select("SELECT note_id FROM schedule_note WHERE schedule_id = #{scheduleId}")
     List<Long> findNoteIdsByScheduleId(@Param("scheduleId") Long scheduleId);
+
+    @Delete("DELETE FROM schedule_note WHERE note_id = #{noteId}")
+    int deleteByNoteId(@Param("noteId") Long noteId);
 }

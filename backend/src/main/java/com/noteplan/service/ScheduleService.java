@@ -212,4 +212,16 @@ public class ScheduleService {
             scheduleMapper.deleteById(id);
         }
     }
+
+    public List<Schedule> search(String keyword) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return getAllSchedules();
+        }
+        List<Schedule> schedules = scheduleMapper.search(keyword.trim());
+        for (Schedule schedule : schedules) {
+            Long tagId = noteTagMapper.selectTagIdByTarget(schedule.getId(), "SCHEDULE");
+            schedule.setTagId(tagId);
+        }
+        return schedules;
+    }
 }

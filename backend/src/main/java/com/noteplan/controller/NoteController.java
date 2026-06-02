@@ -24,6 +24,11 @@ public class NoteController {
         return Result.success(noteService.getAllNotes());
     }
 
+    @GetMapping("/search")
+    public Result<List<Note>> search(@RequestParam String keyword) {
+        return Result.success(noteService.search(keyword));
+    }
+
     @GetMapping("/by-date")
     public Result<List<Note>> getByDate(@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return Result.success(noteService.getNotesByDate(date));
@@ -61,5 +66,11 @@ public class NoteController {
     @PostMapping("/recover")
     public Result<Note> recoverVersion(@RequestParam Long noteId, @RequestParam Integer versionNo) {
         return Result.success(noteService.recoverVersion(noteId, versionNo));
+    }
+
+    @DeleteMapping("/version")
+    public Result<Void> deleteVersion(@RequestParam Long noteId, @RequestParam Integer versionNo) {
+        noteService.deleteVersion(noteId, versionNo);
+        return Result.success();
     }
 }
