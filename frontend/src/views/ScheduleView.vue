@@ -522,11 +522,18 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Delete, Document, Search } from '@element-plus/icons-vue'
-import axios from 'axios'
+import { Plus, Delete, Document } from '@element-plus/icons-vue'
 import TagSidebar from "@/components/TagSidebar.vue"
 import TagSelector from "@/components/TagSelector.vue";
 import { useRouter } from 'vue-router'
+import { getNoteList } from '@/api/note'
+import {
+  addSchedule,
+  batchDeleteSchedules,
+  getScheduleList,
+  updateScheduleComplete
+} from '@/api/schedule'
+import { getTagByTarget, getTagFilteredTargets, getTagList } from '@/api/tag'
 
 // ---------- 数据 ----------
 const scheduleList = ref([])
@@ -763,9 +770,7 @@ const toggleComplete = async (schedule, event) => {
   schedule.completed = newCompleted
 
   try {
-    const response = await axios.put('http://localhost:8080/api/schedule/complete', null, {
-      params: { id: schedule.id, completed: newCompleted }
-    })
+    const response = await updateScheduleComplete(schedule.id, newCompleted)
     if (response.data.code === 200) {
       await fetchScheduleList()
       ElMessage.success(newCompleted ? '已完成' : '已取消完成')
@@ -889,7 +894,7 @@ const submitSchedule = async () => {
         submitData.endTime = formData.value.endTime
       }
 
-      const response = await axios.post('http://localhost:8080/api/schedule/add', submitData)
+      const response = await addSchedule(submitData)
 
       if (response.data.code === 200) {
         ElMessage.success('添加成功')
@@ -908,7 +913,7 @@ const submitSchedule = async () => {
 // ---------- API ----------
 const fetchTagList = async () => {
   try {
-    const response = await axios.get('http://localhost:8080/api/tags')
+    const response = await getTagList()
     if (response.data.code === 200) {
       tagList.value = response.data.data
     }
@@ -919,13 +924,11 @@ const fetchTagList = async () => {
 
 const fetchNoteList = async () => {
   try {
-    const response = await axios.get('http://localhost:8080/api/note/list')
+    const response = await getNoteList()
     if (response.data.code === 200) {
       const notes = response.data.data || []
       for (const note of notes) {
-        const tagRes = await axios.get('http://localhost:8080/api/tags/target', {
-          params: { targetId: note.id, targetType: 'NOTE' }
-        })
+        const tagRes = await getTagByTarget(note.id, 'NOTE')
         if (tagRes.data.code === 200 && tagRes.data.data) {
           note.tagName = tagRes.data.data.name
           note.tagId = tagRes.data.data.id
@@ -941,35 +944,29 @@ const fetchNoteList = async () => {
 const fetchScheduleList = async () => {
   try {
     if (currentTag.value === 'uncategorized') {
-      const response = await axios.get('http://localhost:8080/api/schedule/list')
+      const response = await getScheduleList()
       const allSchedules = response.data.data || []
 
-      const allTagsResponse = await axios.get('http://localhost:8080/api/tags/filter', {
-        params: { targetType: 'SCHEDULE' }
-      })
+      const allTagsResponse = await getTagFilteredTargets({ targetType: 'SCHEDULE' })
       const taggedScheduleIds = (allTagsResponse.data.data || []).map(item => item.id)
 
       scheduleList.value = allSchedules.filter(s => !taggedScheduleIds.includes(s.id))
 
     } else if (currentTag.value !== 'all') {
-      const filterResponse = await axios.get('http://localhost:8080/api/tags/filter', {
-        params: {
-          tagId: currentTag.value,
-          targetType: 'SCHEDULE'
-        }
+      const filterResponse = await getTagFilteredTargets({
+        tagId: currentTag.value,
+        targetType: 'SCHEDULE'
       })
       const scheduleIds = (filterResponse.data.data || []).map(item => item.id)
 
       if (scheduleIds.length > 0) {
-        const response = await axios.get('http://localhost:8080/api/schedule/list', {
-          params: { ids: scheduleIds.join(',') }
-        })
+        const response = await getScheduleList({ ids: scheduleIds.join(',') })
         scheduleList.value = response.data.data || []
       } else {
         scheduleList.value = []
       }
     } else {
-      const response = await axios.get('http://localhost:8080/api/schedule/list')
+      const response = await getScheduleList()
       scheduleList.value = response.data.data || []
     }
 
@@ -1027,9 +1024,7 @@ const batchDelete = async () => {
         }
     )
 
-    const response = await axios.delete('http://localhost:8080/api/schedule/batch-delete', {
-      data: selectedIds.value
-    })
+    const response = await batchDeleteSchedules(selectedIds.value)
 
     if (response.data.code === 200) {
       ElMessage.success(`成功删除 ${selectedIds.value.length} 个日程`)

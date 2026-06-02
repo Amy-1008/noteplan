@@ -80,7 +80,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import axios from 'axios'
+import { createTag, getTagList } from '@/api/tag'
 
 const props = defineProps({
   modelValue: {
@@ -116,7 +116,7 @@ const selectedTagId = computed({
 const fetchTagList = async () => {
   loading.value = true
   try {
-    const response = await axios.get('http://localhost:8080/api/tags')
+    const response = await getTagList()
     if (response.data.code === 200) {
       tagList.value = response.data.data || []
     }
@@ -158,7 +158,7 @@ const confirmCreate = async () => {
   }
 
   try {
-    const response = await axios.post('http://localhost:8080/api/tags', {
+    const response = await createTag({
       name: trimmedName,
       rank: 0
     })

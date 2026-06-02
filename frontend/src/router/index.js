@@ -49,8 +49,7 @@ const routes = [
   {
     path: '/search',
     name: 'search',
-    component: () => import('@/views/PlaceholderView.vue'),
-    props: { title: '搜索', desc: '关键词模糊搜索与高亮（待实现）' },
+    component: () => import('@/views/SearchView.vue'),
   },
 ]
 

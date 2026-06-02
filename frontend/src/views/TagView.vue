@@ -148,10 +148,7 @@
 
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue'
-import axios from 'axios'
-
-// API 基础路径
-const API_BASE = 'http://localhost:8080/api'
+import { createTag, deleteTag as deleteTagApi, getTagList, updateTag } from '@/api/tag'
 
 // 数据
 const tagList = ref([])
@@ -227,7 +224,7 @@ const showToast = (message, type = 'error') => {
 const fetchTags = async () => {
   loading.value = true
   try {
-    const response = await axios.get(`${API_BASE}/tags`)
+    const response = await getTagList()
     if (response.data.code === 200) {
       tagList.value = response.data.data || []
     }
@@ -243,7 +240,7 @@ const fetchTags = async () => {
 const toggleRank = async (tag) => {
   const newRank = tag.rank === 1 ? 0 : 1
   try {
-    const response = await axios.put(`${API_BASE}/tags/${tag.id}`, {
+    const response = await updateTag(tag.id, {
       name: tag.name,
       rank: newRank
     })
@@ -294,7 +291,7 @@ const confirmEdit = async (id) => {
   }
 
   try {
-    const response = await axios.put(`${API_BASE}/tags/${id}`, {
+    const response = await updateTag(id, {
       name: trimmedName,
       rank: targetTag.rank
     })
@@ -336,7 +333,7 @@ const deleteTag = async () => {
   if (!deleteTarget.value) return
 
   try {
-    const response = await axios.delete(`${API_BASE}/tags/${deleteTarget.value.id}`)
+    const response = await deleteTagApi(deleteTarget.value.id)
     if (response.data.code === 200) {
       tagList.value = tagList.value.filter(t => t.id !== deleteTarget.value.id)
       // 如果当前页没有数据了，跳到上一页
@@ -387,7 +384,7 @@ const confirmAdd = async () => {
   }
 
   try {
-    const response = await axios.post(`${API_BASE}/tags`, {
+    const response = await createTag({
       name: trimmedName,
       rank: 0
     })

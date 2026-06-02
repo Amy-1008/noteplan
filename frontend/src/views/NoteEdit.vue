@@ -51,6 +51,7 @@
               <span>版本 {{ ver.versionNo }} - {{ formatDate(ver.saveTime) }}</span>
               <el-button text type="primary" size="small" @click="previewVersion(ver)">预览</el-button>
               <el-button text type="warning" size="small" @click="handleRecoverVersion(ver.versionNo)">恢复此版本</el-button>
+              <el-button text type="danger" size="small" @click="handleDeleteVersion(ver.versionNo)">删除此版本</el-button>
             </div>
             <el-empty v-if="versionList.length === 0" description="暂无历史版本" />
           </div>
@@ -80,8 +81,8 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import TagSelector from '@/components/TagSelector.vue'
-import { addNote, getNoteById, updateNote, getNoteVersions, recoverVersion } from '@/api/note'
-import axios from 'axios'
+import { addNote, getNoteById, updateNote, getNoteVersions, recoverVersion, deleteNoteVersion } from '@/api/note'
+import { bindTag, clearTag, getTagByTarget, getTagList } from '@/api/tag'
 import { ArrowLeft } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -125,9 +126,7 @@ const loadNote = async () => {
       form.title = note.title || ''
       form.content = note.content || ''
       // 加载当前笔记的标签
-      const tagRes = await axios.get('http://localhost:8080/api/tags/target', {
-        params: { targetId: note.id, targetType: 'NOTE' }
-      })
+      const tagRes = await getTagByTarget(note.id, 'NOTE')
       if (tagRes.data.code === 200 && tagRes.data.data) {
         selectedTagId.value = tagRes.data.data.id
       }
@@ -168,18 +167,10 @@ const saveNote = async () => {
       const savedNote = res.data.data
       // 绑定标签
       if (selectedTagId.value) {
-        await axios.post('http://localhost:8080/api/tags/bind', null, {
-          params: {
-            targetId: savedNote.id,
-            targetType: 'NOTE',
-            tagId: selectedTagId.value
-          }
-        })
+        await bindTag(savedNote.id, 'NOTE', selectedTagId.value)
       } else {
         // 清除标签（如果之前有）
-        await axios.delete('http://localhost:8080/api/tags/clear', {
-          params: { targetId: savedNote.id, targetType: 'NOTE' }
-        })
+        await clearTag(savedNote.id, 'NOTE')
       }
       ElMessage.success(isEdit.value ? '更新成功' : '创建成功')
       goBack() // 统一使用 goBack 方法
@@ -243,6 +234,20 @@ const handleRecoverVersion = async (versionNo) => {
   }
 }
 
+const handleDeleteVersion = async (versionNo) => {
+  try {
+    const res = await deleteNoteVersion(noteId.value, versionNo)
+    if (res.data.code === 200) {
+      ElMessage.success('删除版本成功')
+      loadNote()
+    } else {
+      ElMessage.error(res.data.message || '删除版本失败')
+    }
+  } catch (err) {
+    ElMessage.error('删除版本失败')
+  }
+}
+
 const formatDate = (dateStr) => {
   if (!dateStr) return ''
   const d = new Date(dateStr)
@@ -253,7 +258,7 @@ const tagList = ref([])
 
 const fetchTags = async () => {
   try {
-    const res = await axios.get('http://localhost:8080/api/tags')
+    const res = await getTagList()
     if (res.data.code === 200) {
       tagList.value = res.data.data || []
     }

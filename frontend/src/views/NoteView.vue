@@ -148,7 +148,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getNoteList, deleteNote, addNote, updateNote } from '@/api/note'
-import axios from 'axios'
+import { bindTag, clearTag, getTagByTarget, getTagList } from '@/api/tag'
 
 // 查询参数
 const queryParams = reactive({
@@ -167,7 +167,7 @@ const pageSize = ref(10)
 // 获取所有标签
 const fetchTags = async () => {
   try {
-    const res = await axios.get('http://localhost:8080/api/tags')
+    const res = await getTagList()
     if (res.data.code === 200) {
       tagList.value = res.data.data || []
     }
@@ -184,9 +184,7 @@ const fetchNotes = async () => {
     if (res.data.code === 200) {
       const notes = res.data.data || []
       for (const note of notes) {
-        const tagRes = await axios.get('http://localhost:8080/api/tags/target', {
-          params: { targetId: note.id, targetType: 'NOTE' }
-        })
+        const tagRes = await getTagByTarget(note.id, 'NOTE')
         if (tagRes.data.code === 200 && tagRes.data.data) {
           note.tagName = tagRes.data.data.name
           note.tagId = tagRes.data.data.id
@@ -298,17 +296,9 @@ const saveNote = async () => {
       if (res.data.code === 200) {
         const savedNote = res.data.data
         if (noteForm.tagId) {
-          await axios.post('http://localhost:8080/api/tags/bind', null, {
-            params: {
-              targetId: savedNote.id,
-              targetType: 'NOTE',
-              tagId: noteForm.tagId
-            }
-          })
+          await bindTag(savedNote.id, 'NOTE', noteForm.tagId)
         } else if (dialogType.value === 'edit' && noteForm.tagId === null) {
-          await axios.delete('http://localhost:8080/api/tags/clear', {
-            params: { targetId: savedNote.id, targetType: 'NOTE' }
-          })
+          await clearTag(savedNote.id, 'NOTE')
         }
         ElMessage.success(dialogType.value === 'create' ? '新建成功' : '更新成功')
         dialogVisible.value = false

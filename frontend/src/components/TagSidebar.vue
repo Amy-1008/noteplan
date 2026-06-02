@@ -44,7 +44,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import axios from 'axios'
+import { getTagList, updateTag } from '@/api/tag'
 
 const props = defineProps({
   // 当前选中的标签ID，'all' 表示所有
@@ -75,7 +75,7 @@ const currentTag = computed({
 // 获取标签列表
 const fetchTagList = async () => {
   try {
-    const response = await axios.get('http://localhost:8080/api/tags')
+    const response = await getTagList()
     if (response.data.code === 200) {
       tagList.value = response.data.data || []
     }
@@ -88,7 +88,7 @@ const fetchTagList = async () => {
 const toggleRank = async (tag) => {
   const newRank = tag.rank === 1 ? 0 : 1
   try {
-    const response = await axios.put(`http://localhost:8080/api/tags/${tag.id}`, {
+    const response = await updateTag(tag.id, {
       name: tag.name,
       rank: newRank
     })

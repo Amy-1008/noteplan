@@ -197,9 +197,11 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, Plus, Document, Search } from '@element-plus/icons-vue'
-import axios from 'axios'
 import TagSelector from "@/components/TagSelector.vue";
 import { onBeforeRouteLeave } from 'vue-router'
+import { getNoteList } from '@/api/note'
+import { getScheduleDetail, updateSchedule } from '@/api/schedule'
+import { getTagByTarget, getTagList } from '@/api/tag'
 
 const route = useRoute()
 const router = useRouter()
@@ -373,9 +375,7 @@ const handleEndTimeChangeForPeriodDetail = (val) => {
 // 获取日程详情
 const fetchScheduleDetail = async () => {
   try {
-    const response = await axios.get('http://localhost:8080/api/schedule/detail', {
-      params: { id: scheduleId.value }
-    })
+    const response = await getScheduleDetail(scheduleId.value)
     if (response.data.code === 200) {
       const data = response.data.data
       formData.value.id = data.id
@@ -419,7 +419,7 @@ const fetchScheduleDetail = async () => {
 // 获取标签列表
 const fetchTagList = async () => {
   try {
-    const response = await axios.get('http://localhost:8080/api/tags')
+    const response = await getTagList()
     if (response.data.code === 200) {
       tagList.value = response.data.data
     }
@@ -431,13 +431,11 @@ const fetchTagList = async () => {
 // 获取笔记列表
 const fetchNoteList = async () => {
   try {
-    const response = await axios.get('http://localhost:8080/api/note/list')
+    const response = await getNoteList()
     if (response.data.code === 200) {
       const notes = response.data.data || []
       for (const note of notes) {
-        const tagRes = await axios.get('http://localhost:8080/api/tags/target', {
-          params: { targetId: note.id, targetType: 'NOTE' }
-        })
+        const tagRes = await getTagByTarget(note.id, 'NOTE')
         if (tagRes.data.code === 200 && tagRes.data.data) {
           note.tagName = tagRes.data.data.name
           note.tagId = tagRes.data.data.id
@@ -483,7 +481,7 @@ const saveSchedule = async () => {
           submitData.endTime = formData.value.endTime
         }
 
-        const response = await axios.put('http://localhost:8080/api/schedule/update', submitData)
+        const response = await updateSchedule(submitData)
 
         if (response.data.code === 200) {
           ElMessage.success('保存成功')

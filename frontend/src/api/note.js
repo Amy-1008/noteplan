@@ -39,3 +39,13 @@ export const getNoteVersions = (noteId) => {
 export const recoverVersion = (noteId, versionNo) => {
     return client.post('/note/recover', null, { params: { noteId, versionNo } })
 }
+
+// 删除指定版本
+export const deleteNoteVersion = (noteId, versionNo) => {
+    return client.delete('/note/version', { params: { noteId, versionNo } })
+}
+
+// 搜索笔记
+export const searchNotes = (keyword) => {
+    return client.get('/note/search', { params: { keyword } })
+}
