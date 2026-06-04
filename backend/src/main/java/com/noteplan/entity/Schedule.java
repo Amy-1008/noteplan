@@ -16,4 +16,5 @@ public class Schedule {
     private Integer rank;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
+    private Long tagId;
 }
