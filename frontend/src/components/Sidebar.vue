@@ -1,89 +1,102 @@
 <script setup>
-import {computed, ref, onMounted, watch} from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useNoteStore } from '@/store/note'
 import axios from 'axios'
 
 const store = useNoteStore()
 const router = useRouter()
-const notesWithTags = ref([])
-const todaySchedules = ref([])
+const route = useRoute()
+const allTags = ref([])
+let refreshTimer = null
 
-// 获取所有笔记的标签
-const loadTagsForNotes = async (notes) => {
-  if (!notes || notes.length === 0) {
-    notesWithTags.value = []
-    return
-  }
-
-  const promises = notes.map(async (n) => {
-    let tagName = '未分类'
-    try {
-      const tagRes = await axios.get('http://localhost:8080/api/tags/target', {
-        params: { targetId: n.id, targetType: 'NOTE' }
-      })
-      if (tagRes.data.code === 200 && tagRes.data.data) {
-        tagName = tagRes.data.data.name
-      }
-    } catch (e) {
-      console.error(`获取笔记 ${n.id} 标签失败`, e)
-    }
-    return { ...n, tagName }
-  })
-
-  notesWithTags.value = await Promise.all(promises)
-}
-
-// 获取今日日程
-const fetchTodaySchedules = async () => {
+// 获取所有标签
+const fetchAllTags = async () => {
   try {
-    const response = await axios.get('http://localhost:8080/api/schedule/list')
-    const allSchedules = response.data.data || []
-
-    // 筛选今天的日程
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
-    todaySchedules.value = allSchedules.filter(schedule => {
-      const scheduleDate = new Date(schedule.endTime)
-      scheduleDate.setHours(0, 0, 0, 0)
-      return scheduleDate.getTime() === today.getTime()
-    })
+    const response = await axios.get('http://localhost:8080/api/tags')
+    if (response.data.code === 200) {
+      allTags.value = (response.data.data || []).sort((a, b) => b.rank - a.rank)
+    }
   } catch (error) {
-    console.error('获取今日日程失败', error)
+    console.error('获取标签失败', error)
   }
 }
 
-// 标签统计（使用 notesWithTags）
-const tags = computed(() => {
-  const map = {}
-  const notes = notesWithTags.value
+const goToTagManagement = () => {
+  router.push('/tags')
+}
 
-  notes.forEach(n => {
-    const tagName = n.tagName || '未分类'
-    if (!map[tagName]) map[tagName] = 0
-    map[tagName]++
-  })
+const toggleTagRank = async (tag) => {
+  const newRank = tag.rank === 1 ? 0 : 1
+  try {
+    const response = await axios.put(`http://localhost:8080/api/tags/${tag.id}`, {
+      name: tag.name,
+      rank: newRank
+    })
+    if (response.data.code === 200) {
+      tag.rank = newRank
+      allTags.value = [...allTags.value].sort((a, b) => b.rank - a.rank)
+      const storeTag = store.tags.find(t => t.id === tag.id)
+      if (storeTag) {
+        storeTag.rank = newRank
+      }
+    }
+  } catch (error) {
+    console.error('切换置顶状态失败:', error)
+  }
+}
 
-  return map
+const totalWords = computed(() => {
+  const notes = store.notes || []
+  return notes.reduce((sum, note) => sum + (note.content?.length || 0), 0)
+})
+
+const todoCount = computed(() => {
+  const schedules = store.scheduleList || []
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return schedules.filter(schedule => {
+    if (schedule.completed) return false
+    const scheduleDate = new Date(schedule.endTime)
+    scheduleDate.setHours(0, 0, 0, 0)
+    return scheduleDate.getTime() === today.getTime()
+  }).length
 })
 
 const selectTag = (tag) => {
+  const path = route.path
+  if (path === '/calendar' || path === '/tags') return
   store.setActiveTag(tag)
-  if (router.currentRoute.value.path !== '/') {
-    router.push('/')
+  if (path === '/' || path.startsWith('/notes')) {
+    if (path !== '/') router.push('/')
+    return
+  }
+  if (path === '/schedules' || path.startsWith('/schedule')) {
+    if (path !== '/schedules') router.push('/schedules')
+    filterSchedulesByTag(tag)
+    return
   }
 }
 
-const totalEntries = computed(() => notesWithTags.value.length)
-const totalWords = computed(() => {
-  return notesWithTags.value.reduce((sum, n) => sum + (n.content?.length || 0), 0)
-})
-
-// 待办日程数量（未完成的）
-const todoCount = computed(() => {
-  return todaySchedules.value.filter(s => !s.completed).length
-})
+const filterSchedulesByTag = (tag) => {
+  const allSchedules = store.fullScheduleList || store.scheduleList || []
+  let filtered = []
+  if (tag === '全部') {
+    filtered = allSchedules
+  } else {
+    filtered = allSchedules.filter(schedule => {
+      if (schedule.tagId) {
+        const tagObj = store.tags.find(t => t.id === schedule.tagId)
+        return tagObj && tagObj.name === tag
+      }
+      return false
+    })
+  }
+  store.scheduleList = filtered
+  if (route.path === '/schedules') {
+    window.dispatchEvent(new CustomEvent('schedule-filtered', { detail: filtered }))
+  }
+}
 
 const getTagColor = (tag) => {
   const colors = {
@@ -100,18 +113,23 @@ const getTagColor = (tag) => {
   }
   return colors[tag] || '#9ca3af'
 }
-watch(() => store.sidebarRefreshTrigger, async () => {
-  await refreshSidebar()
-})
-const refreshSidebar = async () => {
-  await store.fetchNotes()  // 重新获取笔记
-  await loadTagsForNotes(store.notes)  // 重新加载标签
-  await fetchTodaySchedules()  // 重新获取今日日程
+
+const startRefreshTimer = () => {
+  refreshTimer = setInterval(() => {
+    fetchAllTags()
+  }, 2000)
 }
-onMounted(async () => {
-  if (!store.notes.length) await store.fetchNotes()
-  await loadTagsForNotes(store.notes)
-  await fetchTodaySchedules()
+
+onMounted(() => {
+  fetchAllTags()
+  startRefreshTimer()
+})
+
+onUnmounted(() => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+    refreshTimer = null
+  }
 })
 </script>
 
@@ -122,7 +140,7 @@ onMounted(async () => {
       <div class="insights-header">Insights</div>
       <div class="insights-stats">
         <div class="stat-item">
-          <span class="stat-number">{{ totalEntries }}</span>
+          <span class="stat-number">{{ store.notes.length }}</span>
           <span class="stat-label">Entries<br />This Year</span>
         </div>
         <div class="stat-item">
@@ -146,19 +164,21 @@ onMounted(async () => {
     <div class="tags-section">
       <div class="tags-header">
         <span>Tags</span>
-        <button class="add-tag-btn">+</button>
+        <button class="add-tag-btn" @click="goToTagManagement">+</button>
       </div>
 
       <div class="tag-item" :class="{ active: store.activeTag === '全部' }" @click="selectTag('全部')">
         <span class="tag-icon">🏠</span>
         <span class="tag-name">All Entries</span>
-        <span class="tag-count">{{ totalEntries }}</span>
       </div>
 
-      <div v-for="(count, tag) in tags" :key="tag" class="tag-item" :class="{ active: store.activeTag === tag }" @click="selectTag(tag)">
-        <span class="tag-dot" :style="{ backgroundColor: getTagColor(tag) }"></span>
-        <span class="tag-name">{{ tag }}</span>
-        <span class="tag-count">{{ count }}</span>
+      <div v-for="tag in allTags" :key="tag.id" class="tag-item" :class="{ active: store.activeTag === tag.name }" @click="selectTag(tag.name)">
+        <span class="tag-dot" :style="{ backgroundColor: getTagColor(tag.name) }"></span>
+        <span class="tag-name">{{ tag.name }}</span>
+        <button class="star-btn" @click.stop="toggleTagRank(tag)" :title="tag.rank === 1 ? '取消置顶' : '置顶'">
+          <span v-if="tag.rank === 1" class="star filled">★</span>
+          <span v-else class="star empty">☆</span>
+        </button>
       </div>
     </div>
   </div>
@@ -171,8 +191,9 @@ onMounted(async () => {
   height: 100%;
   overflow-y: auto;
   flex-shrink: 0;
-  background: #fafafa;
-  border-right: 1px solid #f0f0f0;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+  transition: background 0.3s, border-color 0.3s;
 }
 
 /* Insights 卡片 */
@@ -212,7 +233,7 @@ onMounted(async () => {
   line-height: 1.3;
 }
 
-/* 今日待办卡片 - 调整高度 */
+/* 今日待办卡片 */
 .todo-card {
   background: #e0f2fe;
   border-radius: 16px;
@@ -220,7 +241,6 @@ onMounted(async () => {
   margin-bottom: 20px;
   height: auto;
   min-height: 100px;
-  overflow: hidden;
 }
 
 .todo-header {
@@ -267,19 +287,19 @@ onMounted(async () => {
   align-items: center;
   font-size: 13px;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--text-secondary);
   margin-bottom: 12px;
 }
 
 .add-tag-btn {
-  background: #e5e7eb;
+  background: var(--bg-hover);
   border: none;
   width: 24px;
   height: 24px;
   border-radius: 50%;
   font-size: 14px;
   cursor: pointer;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .tag-item {
@@ -293,11 +313,11 @@ onMounted(async () => {
 }
 
 .tag-item:hover {
-  background: #f3f4f6;
+  background: var(--bg-hover);
 }
 
 .tag-item.active {
-  background: #f3f4f6;
+  background: var(--bg-hover);
 }
 
 .tag-icon {
@@ -316,11 +336,39 @@ onMounted(async () => {
 .tag-name {
   flex: 1;
   font-size: 14px;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
-.tag-count {
-  font-size: 12px;
-  color: #9ca3af;
+.star-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.1s;
+  margin-left: 8px;
+}
+
+.star-btn:hover {
+  transform: scale(1.1);
+}
+
+.star {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.star.filled {
+  color: #fbbf24;
+}
+
+.star.empty {
+  color: #d1d5db;
+}
+
+.star.empty:hover {
+  color: #fbbf24;
 }
 </style>

@@ -1,165 +1,142 @@
 <template>
-  <div class="detail-container">
-    <div class="detail-header">
-      <el-button @click="goBack">
-        <el-icon><ArrowLeft /></el-icon> 返回
-      </el-button>
-      <h2>日程详情</h2>
-      <el-button type="primary" @click="saveSchedule">保存</el-button>
+  <div class="page-container">
+    <div class="page-inner">
+      <!-- 顶部导航 -->
+      <div class="page-header">
+        <h2 class="page-title">{{ isEdit ? '编辑日程' : '新建日程' }}</h2>
+        <div class="header-actions">
+          <button class="btn-cancel" @click="goBack">取消</button>
+          <button class="btn-confirm" @click="saveSchedule" :disabled="saving">
+            {{ saving ? '保存中...' : '保存' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- 笔记本主体 -->
+      <div class="notebook">
+        <!-- 左侧：日期栏 -->
+        <div class="date-column">
+          <div class="date-display">
+            <div class="date-number">{{ currentDay }}</div>
+            <div class="date-detail">
+              <div class="date-month">{{ currentMonth }}</div>
+              <div class="date-year">{{ currentYear }}</div>
+              <div class="date-weekday">{{ currentWeekday }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 右侧：内容区域 -->
+        <div class="content-column">
+          <div class="content-header">
+            <input
+                v-model="formData.title"
+                type="text"
+                class="title-input"
+                placeholder="标题"
+            />
+          </div>
+
+          <div class="time-section">
+            <div class="time-type">
+              <span class="label">时间</span>
+              <el-radio-group v-model="formData.timeType" class="radio-group">
+                <el-radio value="point">点</el-radio>
+                <el-radio value="period">段</el-radio>
+              </el-radio-group>
+            </div>
+
+            <div class="time-picker">
+              <el-date-picker
+                  v-if="formData.timeType === 'point'"
+                  v-model="formData.endTime"
+                  type="datetime"
+                  placeholder="选择时间"
+                  style="width: 100%"
+                  @change="handleEndTimeChange"
+              />
+              <div v-else class="period-picker">
+                <el-date-picker
+                    v-model="formData.startTime"
+                    type="datetime"
+                    placeholder="开始"
+                    style="flex: 1"
+                    @change="handleStartTimeChange"
+                />
+                <span class="time-separator">→</span>
+                <el-date-picker
+                    v-model="formData.endTime"
+                    type="datetime"
+                    placeholder="结束"
+                    style="flex: 1"
+                    @change="handleEndTimeChangeForPeriod"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div class="repeat-section">
+            <span class="label">重复</span>
+            <el-select v-model="formData.repeatRule" class="repeat-select">
+              <el-option label="不重复" value="none" />
+              <el-option label="每天" value="daily" />
+              <el-option label="每周" value="weekly" />
+              <el-option label="每月" value="monthly" />
+              <el-option label="每年" value="yearly" />
+              <el-option label="工作日" value="workday" />
+              <el-option label="节假日" value="holiday" />
+            </el-select>
+          </div>
+
+          <div class="remark-section">
+            <span class="label">备注</span>
+            <textarea
+                v-model="formData.remark"
+                class="remark-input"
+                placeholder="备注"
+                rows="4"
+            ></textarea>
+          </div>
+
+          <div class="tag-section">
+            <span class="label">标签</span>
+            <TagSelector v-model="formData.tagId" @tag-created="handleTagCreated" />
+          </div>
+
+          <div class="note-section">
+            <span class="label">关联笔记</span>
+            <div class="notes-display">
+              <div class="notes-list">
+                <span v-for="note in selectedNotes" :key="note.id" class="note-tag">
+                  {{ note.title }}
+                  <button class="remove-tag" @click="removeNote(note.id)">×</button>
+                </span>
+                <span v-if="selectedNotes.length === 0" class="placeholder-text">未关联笔记</span>
+              </div>
+              <button class="btn-cancel" @click="openNoteSelector">+ 选择笔记</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <el-form :model="formData" :rules="formRules" ref="formRef" label-width="80px" class="detail-form">
-      <el-form-item label="标题" prop="title">
-        <el-input
-            v-model="formData.title"
-            placeholder="请输入日程标题"
-            maxlength="20"
-            show-word-limit
-        />
-      </el-form-item>
-
-      <el-form-item label="时间类型" prop="timeType">
-        <el-radio-group v-model="formData.timeType">
-          <el-radio value="point">时间点</el-radio>
-          <el-radio value="period">时间段</el-radio>
-        </el-radio-group>
-      </el-form-item>
-
-      <el-form-item v-if="formData.timeType === 'point'" label="时间" prop="endTime">
-        <el-date-picker
-            v-model="formData.endTime"
-            type="datetime"
-            placeholder="选择日期时间"
-            format="YYYY-MM-DD HH:mm"
-            value-format="YYYY-MM-DDTHH:mm:ss"
-            style="width: 100%"
-        />
-      </el-form-item>
-
-      <template v-else>
-        <el-form-item label="开始时间" prop="startTime">
-          <el-date-picker
-              v-model="formData.startTime"
-              type="datetime"
-              placeholder="选择开始时间"
-              format="YYYY-MM-DD HH:mm"
-              value-format="YYYY-MM-DDTHH:mm:ss"
-              @change="handleStartTimeChangeForPeriod"
-              style="width: 100%"
-          />
-        </el-form-item>
-        <el-form-item label="结束时间" prop="endTime">
-          <el-date-picker
-              v-model="formData.endTime"
-              type="datetime"
-              placeholder="选择结束时间"
-              format="YYYY-MM-DD HH:mm"
-              value-format="YYYY-MM-DDTHH:mm:ss"
-              @change="handleEndTimeChangeForPeriodDetail"
-              style="width: 100%"
-          />
-        </el-form-item>
-      </template>
-
-      <el-form-item label="重复频率">
-        <el-select v-model="formData.repeatRule" placeholder="不重复" style="width: 100%">
-          <el-option label="无" value="none" />
-          <el-option label="每天" value="daily" />
-          <el-option label="每周" value="weekly" />
-          <el-option label="每月" value="monthly" />
-          <el-option label="每年" value="yearly" />
-          <el-option label="工作日" value="workday" />
-          <el-option label="节假日" value="holiday" />
-        </el-select>
-      </el-form-item>
-
-      <el-form-item label="备注" prop="remark">
-        <el-input
-            v-model="formData.remark"
-            type="textarea"
-            :rows="5"
-            placeholder="请输入备注"
-            maxlength="800"
-            show-word-limit
-        />
-      </el-form-item>
-
-      <el-form-item label="标签" prop="tagId">
-        <TagSelector
-            v-model="formData.tagId"
-            @tag-created="handleTagCreated"
-        />
-      </el-form-item>
-
-      <el-form-item label="关联笔记">
-        <div class="notes-display">
-          <div class="notes-list">
-            <el-tag
-                v-for="note in selectedNotes"
-                :key="note.id"
-                closable
-                @close="removeNote(note.id)"
-                type="success"
-                effect="plain"
-                class="note-tag clickable"
-                @click="goToNoteDetail(note.id)"
-            >
-              {{ note.title }}
-            </el-tag>
-            <span v-if="selectedNotes.length === 0" class="placeholder-text">未关联笔记</span>
-          </div>
-          <el-button size="small" @click="openNoteSelector">
-            <el-icon><Plus /></el-icon> 选择笔记
-          </el-button>
-        </div>
-      </el-form-item>
-    </el-form>
-
     <!-- 笔记选择器弹窗 -->
-    <el-dialog
-        v-model="noteDialogVisible"
-        title="选择关联笔记"
-        width="600px"
-        append-to-body
-    >
+    <el-dialog v-model="noteDialogVisible" title="选择关联笔记" width="600px" append-to-body>
       <div class="note-selector">
         <div class="note-search-bar">
-          <el-input
-              v-model="noteSearchKeyword"
-              placeholder="按标题搜索"
-              clearable
-              prefix-icon="Search"
-              style="width: 200px; margin-right: 12px;"
-          />
-          <el-select
-              v-model="noteFilterTagId"
-              placeholder="按标签筛选"
-              clearable
-              style="width: 150px"
-          >
-            <el-option
-                v-for="tag in tagList"
-                :key="tag.id"
-                :label="tag.name"
-                :value="tag.id"
-            />
+          <el-input v-model="noteSearchKeyword" placeholder="按标题搜索" clearable prefix-icon="Search" style="width: 200px" />
+          <el-select v-model="noteFilterTagId" placeholder="按标签筛选" clearable style="width: 150px">
+            <el-option v-for="tag in tagList" :key="tag.id" :label="tag.name" :value="tag.id" />
           </el-select>
         </div>
         <div class="note-list-selector">
-          <div
-              v-for="note in filteredNoteList"
-              :key="note.id"
-              class="note-item-selector"
-              @click="toggleNoteSelection(note.id)"
-          >
-            <el-checkbox :model-value="tempSelectedNoteIds.includes(note.id)" @click.stop />
+          <div v-for="note in filteredNoteList" :key="note.id" class="note-item-selector" @click="toggleNoteSelection(note.id)">
+            <el-checkbox :model-value="tempSelectedNoteIds.includes(note.id)" @click.stop @change="toggleNoteSelection(note.id)" />
             <div class="note-info">
               <span class="note-title">{{ note.title || '无标题' }}</span>
               <span v-if="note.tagName" class="note-tag-name">#{{ note.tagName }}</span>
             </div>
-            <el-button text @click.stop="viewNoteDetail(note)">
-              <el-icon><Document /></el-icon> 查看
-            </el-button>
+            <el-button text @click.stop="viewNoteDetail(note)"><el-icon><Document /></el-icon> 查看</el-button>
           </div>
           <el-empty v-if="filteredNoteList.length === 0" description="暂无笔记" />
         </div>
@@ -171,12 +148,7 @@
     </el-dialog>
 
     <!-- 笔记详情查看弹窗 -->
-    <el-dialog
-        v-model="viewNoteDialogVisible"
-        :title="currentViewNote?.title || '笔记详情'"
-        width="500px"
-        append-to-body
-    >
+    <el-dialog v-model="viewNoteDialogVisible" :title="currentViewNote?.title || '笔记详情'" width="500px" append-to-body>
       <div class="note-view-content">
         <div class="note-view-meta">
           <span>更新于：{{ formatDate(currentViewNote?.updateTime) }}</span>
@@ -193,37 +165,29 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft, Plus, Document, Search } from '@element-plus/icons-vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import { Plus, Delete, Document, Search } from '@element-plus/icons-vue'
+import TagSelector from '@/components/TagSelector.vue'
 import axios from 'axios'
-import TagSelector from "@/components/TagSelector.vue";
-import { onBeforeRouteLeave } from 'vue-router'
-import {useNoteStore} from "@/store/note.js";
+import { useNoteStore } from '@/store/note'
 
-const route = useRoute()
+const store = useNoteStore()
 const router = useRouter()
+const route = useRoute()
+const saving = ref(false)
 const formRef = ref(null)
 
 const scheduleId = ref(route.query.id)
-const tagList = ref([])
+const isEdit = computed(() => !!scheduleId.value)
 
-// 所有笔记列表（从后端获取）
-const allNotes = ref([])
-
-// 格式化日期时间
-const formatDateTime = (date) => {
-  if (!date) return ''
-  const d = new Date(date)
-  const year = d.getFullYear()
-  const month = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  const hours = String(d.getHours()).padStart(2, '0')
-  const minutes = String(d.getMinutes()).padStart(2, '0')
-  const seconds = String(d.getSeconds()).padStart(2, '0')
-  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`
-}
+// 当前日期
+const now = new Date()
+const currentDay = now.getDate()
+const currentMonth = (now.getMonth() + 1) + '月'
+const currentYear = now.getFullYear()
+const currentWeekday = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'][now.getDay()]
 
 // 表单数据
 const formData = ref({
@@ -238,33 +202,101 @@ const formData = ref({
   noteIds: []
 })
 
-// 表单校验规则
+// 表单校验规则（与新增一致）
 const formRules = {
   title: [
     { required: true, message: '请输入日程标题', trigger: 'blur' },
     { max: 20, message: '标题不能超过20个字符', trigger: 'blur' }
   ],
   endTime: [{ required: true, message: '请选择时间', trigger: 'change' }],
+  startTime: [{
+    required: true,
+    message: '请选择开始时间',
+    trigger: 'change',
+    validator: (rule, value, callback) => {
+      if (formData.value.timeType === 'period' && !value) {
+        callback(new Error('请选择开始时间'))
+      } else {
+        callback()
+      }
+    }
+  }],
   remark: [
     { max: 800, message: '备注不能超过800个字符', trigger: 'blur' }
   ]
 }
 
-// ---------- 标签和笔记显示相关 ----------
-const selectedTag = ref(null)
-const selectedNotes = ref([])
+// ---------- 时间辅助函数 ----------
+const getOneHourLater = () => {
+  const date = new Date()
+  date.setHours(date.getHours() + 1)
+  return date
+}
+
+const formatDateTime = (date) => {
+  if (!date) return ''
+  const d = new Date(date)
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  const hours = String(d.getHours()).padStart(2, '0')
+  const minutes = String(d.getMinutes()).padStart(2, '0')
+  const seconds = String(d.getSeconds()).padStart(2, '0')
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`
+}
+
+const getDefaultTime = () => {
+  return formatDateTime(getOneHourLater())
+}
+
+const handleEndTimeChange = (val) => {
+  if (val && formData.value.timeType === 'point') {
+    const now = new Date()
+    const selectedDate = new Date(val)
+    selectedDate.setHours(now.getHours() + 1, now.getMinutes(), now.getSeconds())
+    formData.value.endTime = formatDateTime(selectedDate)
+  }
+}
+
+const handleStartTimeChange = (val) => {
+  if (val && formData.value.timeType === 'period') {
+    const start = new Date(val)
+    const end = formData.value.endTime ? new Date(formData.value.endTime) : null
+
+    if (!end || end <= start) {
+      const autoEnd = new Date(start.getTime() + 60 * 60 * 1000)
+      formData.value.endTime = formatDateTime(autoEnd)
+      ElMessage.info('结束时间已自动调整为开始时间后1小时')
+    }
+  }
+}
+
+const handleEndTimeChangeForPeriod = (val) => {
+  if (val && formData.value.timeType === 'period') {
+    const end = new Date(val)
+    const start = formData.value.startTime ? new Date(formData.value.startTime) : null
+
+    if (start && end <= start) {
+      const autoEnd = new Date(start.getTime() + 60 * 60 * 1000)
+      formData.value.endTime = formatDateTime(autoEnd)
+      ElMessage.warning('结束时间不能早于或等于开始时间，已自动调整为开始时间后1小时')
+    }
+  }
+}
 
 // ---------- 笔记选择器相关 ----------
+const selectedNotes = ref([])
 const noteSearchKeyword = ref('')
 const noteFilterTagId = ref(null)
 const noteDialogVisible = ref(false)
 const tempSelectedNoteIds = ref([])
 const viewNoteDialogVisible = ref(false)
 const currentViewNote = ref(null)
-const store = useNoteStore()
-// 过滤后的笔记列表
+const tagList = ref([])
+const noteList = ref([])
+
 const filteredNoteList = computed(() => {
-  let result = [...allNotes.value]
+  let result = [...noteList.value]
 
   if (noteSearchKeyword.value.trim()) {
     const keyword = noteSearchKeyword.value.trim().toLowerCase()
@@ -280,17 +312,6 @@ const filteredNoteList = computed(() => {
   return result
 })
 
-// 根据标签ID获取标签对象
-const getTagById = (tagId) => {
-  return tagList.value.find(t => t.id === tagId)
-}
-
-// 根据笔记ID列表获取笔记对象列表
-const getNotesByIds = (noteIds) => {
-  return allNotes.value.filter(n => noteIds.includes(n.id))
-}
-
-// 切换笔记选中状态
 const toggleNoteSelection = (noteId) => {
   const index = tempSelectedNoteIds.value.indexOf(noteId)
   if (index > -1) {
@@ -300,7 +321,6 @@ const toggleNoteSelection = (noteId) => {
   }
 }
 
-// 打开笔记选择器
 const openNoteSelector = () => {
   tempSelectedNoteIds.value = [...formData.value.noteIds]
   noteSearchKeyword.value = ''
@@ -308,116 +328,29 @@ const openNoteSelector = () => {
   noteDialogVisible.value = true
 }
 
-// 确认选择笔记
 const confirmNoteSelection = () => {
-  selectedNotes.value = allNotes.value.filter(n => tempSelectedNoteIds.value.includes(n.id))
+  selectedNotes.value = noteList.value.filter(n => tempSelectedNoteIds.value.includes(n.id))
   formData.value.noteIds = tempSelectedNoteIds.value
   noteDialogVisible.value = false
 }
 
-// 移除笔记
 const removeNote = (noteId) => {
   selectedNotes.value = selectedNotes.value.filter(n => n.id !== noteId)
   formData.value.noteIds = selectedNotes.value.map(n => n.id)
 }
 
-// 查看笔记详情（弹窗内）
 const viewNoteDetail = (note) => {
   currentViewNote.value = note
   viewNoteDialogVisible.value = true
 }
 
-// 格式化日期
 const formatDate = (dateStr) => {
   if (!dateStr) return ''
   const d = new Date(dateStr)
   return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`
 }
 
-// 校验并调整时间段时间
-const validateAndAdjustPeriodTime = () => {
-  if (formData.value.timeType !== 'period') return
-
-  const start = formData.value.startTime ? new Date(formData.value.startTime) : null
-  const end = formData.value.endTime ? new Date(formData.value.endTime) : null
-
-  if (!start) return
-
-  if (!end || end <= start) {
-    const autoEnd = new Date(start.getTime() + 60 * 60 * 1000)
-    formData.value.endTime = formatDateTime(autoEnd)
-    ElMessage.info('结束时间已自动调整为开始时间后1小时')
-  }
-}
-
-// 开始时间变化时的处理
-const handleStartTimeChangeForPeriod = (val) => {
-  if (val && formData.value.timeType === 'period') {
-    validateAndAdjustPeriodTime()
-  }
-}
-
-// 结束时间变化时的处理
-const handleEndTimeChangeForPeriodDetail = (val) => {
-  if (val && formData.value.timeType === 'period') {
-    const end = new Date(val)
-    const start = formData.value.startTime ? new Date(formData.value.startTime) : null
-
-    if (start && end <= start) {
-      const autoEnd = new Date(start.getTime() + 60 * 60 * 1000)
-      formData.value.endTime = formatDateTime(autoEnd)
-      ElMessage.warning('结束时间不能早于或等于开始时间，已自动调整为开始时间后1小时')
-    }
-  }
-}
-
-// 获取日程详情
-const fetchScheduleDetail = async () => {
-  try {
-    const response = await axios.get('http://localhost:8080/api/schedule/detail', {
-      params: { id: scheduleId.value }
-    })
-    if (response.data.code === 200) {
-      const data = response.data.data
-      formData.value.id = data.id
-      formData.value.title = data.title
-      formData.value.repeatRule = data.repeatRule || 'none'
-      formData.value.remark = data.remark || ''
-
-      if (data.tagId) {
-        selectedTag.value = getTagById(data.tagId)
-        formData.value.tagId = data.tagId
-      }
-
-      if (data.noteIds && data.noteIds.length > 0) {
-        // 先获取所有笔记列表，再筛选出关联的
-        await fetchNoteList()  // 确保笔记列表已加载
-        selectedNotes.value = allNotes.value.filter(n => data.noteIds.includes(n.id))
-        formData.value.noteIds = data.noteIds
-      } else {
-        selectedNotes.value = []
-        formData.value.noteIds = []
-      }
-
-      // 时间类型处理
-      if (!data.startTime) {
-        formData.value.timeType = 'point'
-        formData.value.endTime = data.endTime
-        formData.value.startTime = ''
-      } else {
-        formData.value.timeType = 'period'
-        formData.value.startTime = data.startTime
-        formData.value.endTime = data.endTime
-        validateAndAdjustPeriodTime()
-      }
-    }
-  } catch (error) {
-    console.error('获取日程详情失败', error)
-    ElMessage.error('加载失败')
-  }
-}
-
-// 获取标签列表
+// ---------- API ----------
 const fetchTagList = async () => {
   try {
     const response = await axios.get('http://localhost:8080/api/tags')
@@ -429,7 +362,6 @@ const fetchTagList = async () => {
   }
 }
 
-// 获取笔记列表
 const fetchNoteList = async () => {
   try {
     const response = await axios.get('http://localhost:8080/api/note/list')
@@ -444,141 +376,226 @@ const fetchNoteList = async () => {
           note.tagId = tagRes.data.data.id
         }
       }
-      allNotes.value = notes
+      noteList.value = notes
     }
   } catch (error) {
     console.error('获取笔记失败', error)
   }
 }
 
+// 加载日程详情
+const fetchScheduleDetail = async () => {
+  if (!scheduleId.value) return
+
+  try {
+    const response = await axios.get('http://localhost:8080/api/schedule/detail', {
+      params: { id: scheduleId.value }
+    })
+    if (response.data.code === 200) {
+      const data = response.data.data
+      formData.value.id = data.id
+      formData.value.title = data.title || ''
+      formData.value.repeatRule = data.repeatRule || 'none'
+      formData.value.remark = data.remark || ''
+      formData.value.tagId = data.tagId || null
+
+      if (data.noteIds && data.noteIds.length > 0) {
+        await fetchNoteList()
+        selectedNotes.value = noteList.value.filter(n => data.noteIds.includes(n.id))
+        formData.value.noteIds = data.noteIds
+      }
+
+      if (!data.startTime) {
+        formData.value.timeType = 'point'
+        formData.value.endTime = data.endTime
+      } else {
+        formData.value.timeType = 'period'
+        formData.value.startTime = data.startTime
+        formData.value.endTime = data.endTime
+      }
+    }
+  } catch (error) {
+    console.error('获取日程详情失败', error)
+    ElMessage.error('加载失败')
+  }
+}
+
 // 保存日程
 const saveSchedule = async () => {
-  if (!formRef.value) return
+  if (!formData.value.title.trim()) {
+    ElMessage.warning('请输入标题')
+    return
+  }
 
-  await formRef.value.validate(async (valid) => {
-    if (!valid) {
-      ElMessage.warning('请填写必填项')
-      return
+  saving.value = true
+  try {
+    const submitData = {
+      id: formData.value.id,
+      title: formData.value.title,
+      repeatRule: formData.value.repeatRule,
+      remark: formData.value.remark,
+      tagId: formData.value.tagId,
+      noteIds: formData.value.noteIds
     }
 
-    ElMessageBox.confirm('确定要保存修改吗？', '确认', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }).then(async () => {
-      try {
-        const submitData = {
-          id: formData.value.id,
-          title: formData.value.title,
-          repeatRule: formData.value.repeatRule,
-          remark: formData.value.remark,
-          tagId: formData.value.tagId,
-          noteIds: formData.value.noteIds
-        }
-
-        if (formData.value.timeType === 'point') {
-          submitData.startTime = null
-          submitData.endTime = formData.value.endTime
-        } else {
-          submitData.startTime = formData.value.startTime
-          submitData.endTime = formData.value.endTime
-        }
-
-        const response = await axios.put('http://localhost:8080/api/schedule/update', submitData)
-
-        if (response.data.code === 200) {
-          ElMessage.success('保存成功')
-          store.triggerSidebarRefresh()
-          router.push('/schedules')
-        } else {
-          ElMessage.error(response.data.message || '保存失败')
-        }
-      } catch (error) {
-        console.error('保存失败', error)
-        ElMessage.error('保存失败')
+    if (formData.value.timeType === 'point') {
+      submitData.startTime = null
+      submitData.endTime = formData.value.endTime
+    } else {
+      if (!formData.value.startTime || !formData.value.endTime) {
+        ElMessage.warning('请选择完整的时间段')
+        saving.value = false
+        return
       }
-    }).catch(() => {})
-  })
-}
+      submitData.startTime = formData.value.startTime
+      submitData.endTime = formData.value.endTime
+    }
 
-// 标记是否是从笔记页返回
-const isReturningFromNote = ref(sessionStorage.getItem('isReturningFromNote') === 'true')
+    const response = await axios.put('http://localhost:8080/api/schedule/update', submitData)
 
-// 保存标记到 sessionStorage
-const setReturningFromNote = (value) => {
-  isReturningFromNote.value = value
-  sessionStorage.setItem('isReturningFromNote', value)
-}
-
-// 跳转到笔记详情页
-const goToNoteDetail = (noteId) => {
-  if (noteId) {
-    // 设置标记，表示要从日程详情跳转到笔记
-    sessionStorage.setItem('returnToSchedule', scheduleId.value)
-    sessionStorage.setItem('fromSchedule', 'true')
-    sessionStorage.setItem('isReturningFromNote', 'true')
-    router.push({ path: `/notes/edit/${noteId}`, query: { from: 'schedule' } })
+    if (response.data.code === 200) {
+      ElMessage.success('保存成功')
+      store.triggerSidebarRefresh()
+      goBack()
+    } else {
+      ElMessage.error(response.data.message || '保存失败')
+    }
+  } catch (error) {
+    console.error('保存失败', error)
+    ElMessage.error('保存失败')
+  } finally {
+    saving.value = false
   }
 }
 
-// 返回日程列表页
+// 返回日程列表
 const goBack = () => {
-  // 检查 sessionStorage 中的标记
-  const isReturning = sessionStorage.getItem('isReturningFromNote') === 'true'
-  const fromSchedule = sessionStorage.getItem('fromSchedule') === 'true'
-
-  if (isReturning && fromSchedule) {
-    // 清除所有相关标记
-    sessionStorage.removeItem('isReturningFromNote')
-    sessionStorage.removeItem('fromSchedule')
-    router.push('/schedules')
-  } else {
-    router.back()
-  }
+  router.push('/schedules')
 }
 
-const handleTagCreated = () => {
+const handleTagCreated = (newTag) => {
   fetchTagList()
 }
+// 监听时间类型变化
+watch(() => formData.value.timeType, (newVal) => {
+  const defaultTime = getDefaultTime()
 
-onMounted(async () => {
-  await fetchNoteList()
-  await fetchTagList()
-  await fetchScheduleDetail()
+  if (newVal === 'point') {
+    formData.value.startTime = ''
+    formData.value.endTime = defaultTime
+  } else {
+    const defaultStart = new Date()
+    const defaultEnd = new Date(defaultStart.getTime() + 60 * 60 * 1000)
+    formData.value.startTime = formatDateTime(defaultStart)
+    formData.value.endTime = formatDateTime(defaultEnd)
+    ElMessage.info('已自动将结束时间设置为开始后一小时')
+  }
 })
-
+onMounted(() => {
+  fetchTagList()
+  fetchNoteList()
+  fetchScheduleDetail()
+})
 </script>
 
 <style scoped>
 .detail-container {
-  max-width: 800px;
+  padding: 24px 32px;
+  max-width: 680px;
   margin: 0 auto;
-  padding: 20px;
 }
 
 .detail-header {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  margin-bottom: 30px;
+  align-items: center;
+  margin-bottom: 24px;
 }
 
-.detail-header h2 {
-  margin: 0;
+.back-btn {
+  background: none;
+  border: none;
+  font-size: 14px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px 12px;
+  border-radius: 6px;
+  transition: 0.2s;
+}
+
+.back-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.save-btn {
+  padding: 6px 20px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.save-btn:hover {
+  background: #3b7adf;
 }
 
 .detail-form {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  background: var(--card-bg);
+  border-radius: 14px;
+  padding: 24px;
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow);
+  transition: background 0.3s, border-color 0.3s;
 }
 
-.tag-display {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  transition: background 0.3s, border-color 0.3s;
+}
+
+.form-input:focus {
+  border-color: var(--accent);
+}
+
+.form-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  resize: vertical;
+  min-height: 100px;
+  font-family: inherit;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  transition: background 0.3s, border-color 0.3s;
+}
+
+.form-textarea:focus {
+  border-color: var(--accent);
 }
 
 .notes-display {
@@ -590,90 +607,163 @@ onMounted(async () => {
 .notes-list {
   display: flex;
   flex-wrap: wrap;
+  gap: 6px;
+}
+
+.note-tag {
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
+  background: var(--tag-bg);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  color: var(--tag-text);
+}
+
+.remove-tag {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 14px;
+  transition: 0.2s;
+}
+
+.remove-tag:hover {
+  color: #ef4444;
 }
 
 .placeholder-text {
-  color: #c0c4cc;
+  color: var(--text-secondary);
   font-size: 13px;
 }
 
-.note-tag.clickable {
+.btn-cancel {
+  padding: 4px 12px;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  border: none;
+  border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s;
+  font-size: 13px;
+  transition: 0.2s;
 }
 
-.note-tag.clickable:hover {
-  transform: scale(1.02);
-  opacity: 0.8;
+.btn-cancel:hover {
+  background: var(--border-color);
 }
 
-/* 笔记选择器样式 */
-.note-selector {
-  padding: 8px 0;
+/* 笔记本风格的表单 */
+.title-input {
+  width: 100%;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-primary);
+  border: none;
+  outline: none;
+  padding: 0 0 12px 0;
+  background: transparent;
+  border-bottom: 1px solid var(--card-border);
+  margin-bottom: 20px;
 }
 
-.note-search-bar {
+.title-input::placeholder {
+  color: var(--text-secondary);
+}
+
+.title-input:focus {
+  border-bottom-color: var(--accent);
+}
+
+.time-section {
   display: flex;
   align-items: center;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #ebeef5;
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
-.note-list-selector {
-  max-height: 400px;
-  overflow-y: auto;
-}
-
-.note-item-selector {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  border-bottom: 1px solid #f0f0f0;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.note-item-selector:hover {
-  background-color: #f5f7fa;
-}
-
-.note-info {
-  flex: 1;
+.time-type {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.note-title {
-  font-size: 14px;
-  color: #303133;
-}
-
-.note-tag-name {
-  font-size: 12px;
-  color: #909399;
-}
-
-.note-view-content {
-  max-height: 400px;
-  overflow-y: auto;
-}
-
-.note-view-meta {
+.radio-group {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  color: #909399;
-  font-size: 12px;
-  margin-bottom: 8px;
+  gap: 4px;
 }
 
-.note-view-body {
-  white-space: pre-wrap;
-  line-height: 1.6;
+.time-picker {
+  flex: 1;
+}
+
+.period-picker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.time-separator {
+  color: var(--text-secondary);
+  font-size: 16px;
+}
+
+.repeat-section {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.repeat-select {
+  flex: 1;
+}
+
+.remark-section {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.remark-input {
+  flex: 1;
+  width: 100%;
+  font-size: 16px;
+  line-height: 1.8;
+  color: var(--text-primary);
+  border: none;
+  outline: none;
+  padding: 0 0 12px 0;
+  background: transparent;
+  border-bottom: 1px solid var(--card-border);
+  resize: vertical;
+  min-height: 80px;
+  font-family: inherit;
+}
+
+.remark-input::placeholder {
+  color: var(--text-secondary);
+}
+
+.remark-input:focus {
+  border-bottom-color: var(--accent);
+}
+
+.tag-section, .note-section {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  min-width: 50px;
+  padding-top: 4px;
 }
 </style>

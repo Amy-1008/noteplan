@@ -6,6 +6,8 @@ import axios from 'axios'
 
 const store = useNoteStore()
 const keyword = ref('')
+const startDate = ref('')
+const endDate = ref('')
 const notesWithTags = ref([])
 
 // 页面标题
@@ -17,22 +19,16 @@ const pageTitle = computed(() => {
 // 异步获取标签
 const normalizeNote = async (n) => {
   let tagName = '未分类'
-  
   try {
     const tagRes = await axios.get('http://localhost:8080/api/tags/target', {
-      params: { 
-        targetId: n.id, 
-        targetType: 'NOTE' 
-      }
+      params: { targetId: n.id, targetType: 'NOTE' }
     })
-    
     if (tagRes.data.code === 200 && tagRes.data.data) {
       tagName = tagRes.data.data.name
     }
   } catch (e) {
     console.error(`获取笔记 ${n.id} 标签失败`, e)
   }
-  
   return { ...n, tagName }
 }
 
@@ -42,10 +38,7 @@ const loadTagsForNotes = async (notes) => {
     notesWithTags.value = []
     return
   }
-  
-  const promises = notes.map(async (n) => {
-    return await normalizeNote(n)
-  })
+  const promises = notes.map(async (n) => await normalizeNote(n))
   notesWithTags.value = await Promise.all(promises)
 }
 
@@ -57,9 +50,16 @@ const filteredNotes = computed(() => {
   }
   if (keyword.value.trim()) {
     list = list.filter(n =>
-      (n.title || '').includes(keyword.value) ||
-      (n.content || '').includes(keyword.value)
+        (n.title || '').includes(keyword.value) ||
+        (n.content || '').includes(keyword.value)
     )
+  }
+  if (startDate.value && endDate.value) {
+    list = list.filter(n => {
+      if (!n.createTime) return false
+      const noteDate = n.createTime.split('T')[0]
+      return noteDate >= startDate.value && noteDate <= endDate.value
+    })
   }
   return list
 })
@@ -77,10 +77,7 @@ const groupedNotes = computed(() => {
 })
 
 const formatDate = d =>
-  new Date(d).toLocaleDateString('zh-CN', {
-    month: 'long',
-    day: 'numeric'
-  })
+    new Date(d).toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })
 
 onMounted(async () => {
   await store.fetchNotes()
@@ -91,21 +88,23 @@ onMounted(async () => {
 
 <template>
   <div class="home">
-    <!-- 头部：标题 + 搜索 -->
     <div class="main-header">
       <h2 class="page-title">{{ pageTitle }}</h2>
-      <div class="search-box">
-        <span class="search-icon">🔍</span>
-        <input v-model="keyword" placeholder="Search entries..." class="search-input" />
+      <div class="search-area">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input v-model="keyword" placeholder="Search entries..." class="search-input" />
+        </div>
+        <div class="date-filter">
+          <input type="date" v-model="startDate" class="date-input" />
+          <span class="date-separator">至</span>
+          <input type="date" v-model="endDate" class="date-input" />
+        </div>
       </div>
     </div>
 
-    <!-- 内容区域 -->
     <div class="content-area">
-      <div v-if="filteredNotes.length === 0" class="empty-state">
-        暂无匹配笔记
-      </div>
-
+      <div v-if="filteredNotes.length === 0" class="empty-state">暂无匹配笔记</div>
       <div v-for="(group, date) in groupedNotes" :key="date" class="date-group">
         <div class="date-label">{{ formatDate(date) }}</div>
         <div class="card-grid">
@@ -139,21 +138,21 @@ onMounted(async () => {
   margin: 0;
   font-size: 28px;
   font-weight: 700;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .search-box {
   display: flex;
   align-items: center;
-  background: white;
+  background: var(--card-bg);
   border-radius: 24px;
   padding: 6px 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  border: 1px solid #e5e7eb;
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--card-border);
 }
 
 .search-icon {
-  color: #9ca3af;
+  color: var(--text-secondary);
   margin-right: 8px;
   font-size: 14px;
 }
@@ -165,10 +164,37 @@ onMounted(async () => {
   padding: 6px 0;
   width: 200px;
   background: transparent;
+  color: var(--text-primary);
 }
 
 .search-input::placeholder {
-  color: #9ca3af;
+  color: var(--text-secondary);
+}
+
+.date-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.date-input {
+  padding: 6px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 24px;
+  font-size: 13px;
+  background: var(--card-bg);
+  outline: none;
+  box-shadow: var(--card-shadow);
+  color: var(--text-primary);
+}
+
+.date-input:focus {
+  border-color: var(--accent);
+}
+
+.date-separator {
+  color: var(--text-secondary);
+  font-size: 13px;
 }
 
 .content-area {
@@ -185,7 +211,7 @@ onMounted(async () => {
 .date-label {
   font-size: 14px;
   font-weight: 500;
-  color: #6b7280;
+  color: var(--text-secondary);
   margin-bottom: 12px;
   padding-left: 4px;
 }
@@ -199,6 +225,6 @@ onMounted(async () => {
 .empty-state {
   text-align: center;
   padding: 60px 20px;
-  color: #9ca3af;
+  color: var(--empty-text);
 }
 </style>

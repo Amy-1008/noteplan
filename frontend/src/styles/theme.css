@@ -18,28 +18,118 @@
   --radius-md: 12px;
   --radius-sm: 8px;
 
-  --shadow-sm: 0 2px 6px rgba(0,0,0,0.05);
-  --shadow-md: 0 6px 18px rgba(0,0,0,0.08);
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.08);
 
   --transition: all 0.25s ease;
+
+  /* 卡片颜色 */
+  --card-bg: #ffffff;
+  --card-border: #f0f0f0;
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  --card-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.06);
+
+  /* 标签颜色 */
+  --tag-bg: #f3f4f6;
+  --tag-text: #4b5563;
+
+  /* 空状态颜色 */
+  --empty-text: #9ca3af;
+
+  /* 侧边栏颜色 */
+  --sidebar-bg: #fafafa;
+  --sidebar-border: #f0f0f0;
+
+  /* 输入框颜色 */
+  --input-bg: #ffffff;
+  --input-border: #e5e7eb;
+  --input-focus: #4f8cff;
+
+  /* 导航栏颜色 */
+  --header-bg: #ffffff;
+  --header-border: #e5e7eb;
+  --header-text: #4b5563;
+  --header-active: #2563eb;
+
+  /* 日程详情颜色 */
+  /* 日历事件颜色 */
+  --event-schedule-color: #fbbf24;
+  --event-note-color: #34d399;
+  --event-tag-bg: #f0fdf4;
+  --event-tag-color: #34d399;
+  --schedule-bg: #fff5e8;
+  --schedule-time-color: #e8a735;
+  --schedule-status-pending-bg: #ffe7ba;
+  --schedule-status-pending-color: #e8a735;
+  --schedule-status-completed-bg: #d9f0d9;
+  --schedule-status-completed-color: #52c41a;
+  --note-bg: #e8fce8;
+  --note-border-color: #52c41a;
+  --note-tag-bg: #ffffff;
+  --note-tag-color: #52c41a;
 }
 
 /* 深色模式 */
 [data-theme="dark"] {
-  --bg-primary: #1e1f24;
-  --bg-secondary: #2a2b31;
-  --bg-hover: #32333a;
+  --bg-primary: #1a1a2e;
+  --bg-secondary: #16213e;
+  --bg-hover: #2a2a4a;
 
-  --text-primary: #f5f5f7;
-  --text-secondary: #a1a1a6;
+  --text-primary: #e5e7eb;
+  --text-secondary: #9ca3af;
 
-  --border-color: #3a3b42;
+  --border-color: #2a2a4a;
 
   --accent: #4f8cff;
-  --accent-soft: rgba(79, 140, 255, 0.2);
+  --accent-soft: rgba(79, 140, 255, 0.3);
 
-  --shadow-sm: 0 2px 6px rgba(0,0,0,0.3);
-  --shadow-md: 0 8px 24px rgba(0,0,0,0.4);
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
+
+  /* 卡片颜色 */
+  --card-bg: #16213e;
+  --card-border: #2a2a4a;
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --card-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.4);
+
+  /* 标签颜色 */
+  --tag-bg: #2a2a4a;
+  --tag-text: #9ca3af;
+
+  /* 空状态颜色 */
+  --empty-text: #6b6b6f;
+
+  /* 侧边栏颜色 */
+  --sidebar-bg: #16213e;
+  --sidebar-border: #2a2a4a;
+
+  /* 输入框颜色 */
+  --input-bg: #16213e;
+  --input-border: #2a2a4a;
+  --input-focus: #4f8cff;
+
+  /* 导航栏颜色 */
+  --header-bg: #16213e;
+  --header-border: #2a2a4a;
+  --header-text: #9ca3af;
+  --header-active: #4f8cff;
+
+  /* 日程详情颜色 */
+  --schedule-bg: #2a2a4a;
+  --schedule-time-color: #fbbf24;
+  --schedule-status-pending-bg: #4a3a2a;
+  --schedule-status-pending-color: #fbbf24;
+  --schedule-status-completed-bg: #2a4a3a;
+  --schedule-status-completed-color: #34d399;
+  --note-bg: #2a4a3a;
+  --note-border-color: #34d399;
+  --note-tag-bg: #2a2a4a;
+  --note-tag-color: #34d399;
+  /* 日历事件颜色 */
+  --event-schedule-color: #fbbf24;
+  --event-note-color: #34d399;
+  --event-tag-bg: #2a4a3a;
+  --event-tag-color: #34d399;
 }
 
 /* ================= GLOBAL RESET ================= */
@@ -50,47 +140,21 @@ body {
   transition: var(--transition);
 }
 
-/* 卡片统一风格 */
+/* ================= 卡片统一风格 ================= */
+
 .card {
-  background: var(--bg-secondary);
+  background: var(--card-bg);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--card-shadow);
   padding: 16px;
   transition: var(--transition);
+  border: 1px solid var(--card-border);
 }
 
 .card:hover {
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--card-shadow-hover);
 }
 
-/* 按钮 */
-.btn {
-  background: var(--accent);
-  color: white;
-  border: none;
-  border-radius: var(--radius-md);
-  padding: 8px 14px;
-  cursor: pointer;
-  transition: var(--transition);
-}
-
-.btn:hover {
-  opacity: 0.9;
-}
-
-/* 输入框 */
-.input {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: 8px 12px;
-  color: var(--text-primary);
-}
-
-.input:focus {
-  border-color: var(--accent);
-  outline: none;
-}
 /* ================= 通用页面样式 ================= */
 
 .page-container {
@@ -119,7 +183,7 @@ body {
   margin: 0;
   font-size: 28px;
   font-weight: 700;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .page-content {
@@ -128,19 +192,35 @@ body {
   width: 100%;
 }
 
-/* ================= 卡片样式 ================= */
+/* ================= 按钮 ================= */
 
-.card {
-  background: white;
-  border-radius: 14px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  border: 1px solid #f0f0f0;
-  padding: 16px 20px;
-  transition: 0.2s;
+.btn {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: var(--transition);
 }
 
-.card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+.btn:hover {
+  opacity: 0.9;
+}
+
+/* ================= 输入框 ================= */
+
+.input {
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  color: var(--text-primary);
+}
+
+.input:focus {
+  border-color: var(--input-focus);
+  outline: none;
 }
 
 /* ================= 标签显示 ================= */
@@ -149,11 +229,11 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #f3f4f6;
+  background: var(--tag-bg);
   padding: 2px 10px;
   border-radius: 12px;
   font-size: 12px;
-  color: #4b5563;
+  color: var(--tag-text);
 }
 
 .tag-dot {
@@ -168,5 +248,37 @@ body {
 .empty-state {
   text-align: center;
   padding: 60px 20px;
-  color: #9ca3af;
+  color: var(--empty-text);
+}
+
+/* ================= 侧边栏 ================= */
+
+.sidebar {
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+  transition: var(--transition);
+}
+
+/* ================= 导航栏 ================= */
+
+.header {
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--header-border);
+  transition: var(--transition);
+}
+
+.header .logo {
+  color: var(--text-primary);
+}
+
+.header .nav a {
+  color: var(--header-text);
+}
+
+.header .nav a:hover {
+  background: var(--bg-hover);
+}
+
+.header .nav a.router-link-active {
+  color: var(--header-active);
 }

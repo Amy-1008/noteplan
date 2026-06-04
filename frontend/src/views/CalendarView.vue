@@ -147,6 +147,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import dayjs from 'dayjs';
+import axios from 'axios'; // ✅ 添加 axios 导入
 import { getMonthData } from '@/api/calendar';
 import DailyDetail from '@/components/DailyDetail.vue';
 
@@ -181,10 +182,89 @@ const getShortWeekday = (weekday) => {
   return short[weekday];
 };
 
+// 生成重复日程
+const generateRecurringEvents = (schedule, startDate, endDate) => {
+  const events = [];
+  const start = dayjs(schedule.startTime || schedule.endTime);
+  const end = dayjs(schedule.endTime);
+  const duration = end.diff(start, 'minute');
+
+  let current = start.clone();
+  const maxIterations = 50; // 防止无限循环
+
+  let i = 0;
+  while (current.isBefore(endDate) && i < maxIterations) {
+    const dateKey = current.format('YYYY-MM-DD');
+    const eventEnd = current.add(duration, 'minute');
+
+    // ✅ 检查是否在当月范围内
+    if (current.month() + 1 === currentMonth.value && current.year() === currentYear.value) {
+      events.push({
+        id: `${schedule.id}-${i}`,
+        type: 'schedule',
+        title: schedule.title,
+        time: `${current.format('HH:mm')} - ${eventEnd.format('HH:mm')}`,
+        content: schedule.remark,
+        tags: schedule.tags,
+        originalId: schedule.id
+      });
+    }
+
+    // 根据重复规则生成下一次
+    switch (schedule.repeatRule) {
+      case 'daily':
+        current = current.add(1, 'day');
+        break;
+      case 'weekly':
+        current = current.add(1, 'week');
+        break;
+      case 'monthly':
+        current = current.add(1, 'month');
+        break;
+      case 'yearly':
+        current = current.add(1, 'year');
+        break;
+      case 'workday':
+        // 跳过周末
+        current = current.add(1, 'day');
+        while (current.day() === 0 || current.day() === 6) {
+          current = current.add(1, 'day');
+        }
+        break;
+      default:
+        current = endDate; // 结束循环
+    }
+    i++;
+  }
+
+  return events;
+};
+
 const loadMonthData = async () => {
   try {
     const res = await getMonthData(currentYear.value, currentMonth.value);
-    allEvents.value = res.data?.events || {};
+    const events = res.data?.events || {};
+
+    // ✅ 获取所有日程（包括重复日程）
+    const scheduleRes = await axios.get('http://localhost:8080/api/schedule/list');
+    const allSchedules = scheduleRes.data.data || [];
+
+    // ✅ 生成重复日程
+    const startDate = dayjs(`${currentYear.value}-${currentMonth.value}-01`);
+    const endDate = startDate.endOf('month');
+
+    allSchedules.forEach(schedule => {
+      if (schedule.repeatRule && schedule.repeatRule !== 'none') {
+        const recurringEvents = generateRecurringEvents(schedule, startDate, endDate);
+        recurringEvents.forEach(event => {
+          const dateKey = event.date || dayjs(event.time.split(' - ')[0], 'HH:mm').format('YYYY-MM-DD');
+          if (!events[dateKey]) events[dateKey] = [];
+          events[dateKey].push(event);
+        });
+      }
+    });
+
+    allEvents.value = events;
 
     if (viewMode.value === 'month') {
       generateCalendar();
@@ -193,11 +273,11 @@ const loadMonthData = async () => {
     } else if (viewMode.value === 'day') {
       const targetDate = selectedDate.value ? dayjs(selectedDate.value) : dayjs();
       const dateKey = targetDate.format('YYYY-MM-DD');
-      const events = allEvents.value[dateKey] || [];
+      const dayEvents = events[dateKey] || [];
       currentDayData.value = {
         dateTitle: targetDate.format('YYYY年MM月DD日'),
         weekday: getShortWeekday(targetDate.day()),
-        events: events
+        events: dayEvents
       };
     }
   } catch (error) {
@@ -352,11 +432,40 @@ onMounted(() => {
 * {
   box-sizing: border-box;
 }
-
 .calendar-page {
   min-height: 100%;
-  background: #fafafa;
+  background: var(--bg-primary);
   padding: 24px 32px;
+  transition: background 0.3s;
+}
+:deep(.el-drawer) {
+  background: var(--card-bg);
+  transition: background 0.3s;
+}
+
+:deep(.el-drawer__header) {
+  border-bottom: 1px solid var(--card-border);
+  padding: 16px 20px;
+  margin: 0;
+}
+:deep(.el-drawer__title) {
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+:deep(.el-drawer__close-btn) {
+  color: var(--text-secondary);
+}
+
+:deep(.el-drawer__close-btn:hover) {
+  color: var(--text-primary);
+}
+
+:deep(.el-drawer__body) {
+  padding: 0;
+  background: var(--card-bg);
+  transition: background 0.3s;
 }
 
 .top-bar {
@@ -365,19 +474,19 @@ onMounted(() => {
   align-items: flex-end;
   margin-bottom: 24px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--card-border);
 }
 
 .logo-section h1 {
   margin: 0;
   font-size: 26px;
   font-weight: 500;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .logo-section p {
   margin: 6px 0 0;
-  color: #6b7280;
+  color: var(--text-secondary);
   font-size: 13px;
 }
 
@@ -392,28 +501,28 @@ onMounted(() => {
   height: 34px;
   border-radius: 50%;
   border: none;
-  background: white;
+  background: var(--card-bg);
   font-size: 22px;
   cursor: pointer;
-  color: #6b7280;
+  color: var(--text-secondary);
   transition: all 0.2s;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  border: 1px solid #f0f0f0;
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--card-border);
 }
 
 .month-btn:hover {
-  background: #e5e7eb;
-  color: #1a1a1a;
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .year-month-selector {
   display: flex;
   gap: 8px;
-  background: white;
+  background: var(--card-bg);
   padding: 4px 12px;
   border-radius: 30px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  border: 1px solid #f0f0f0;
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--card-border);
 }
 
 .year-select, .month-select {
@@ -422,7 +531,7 @@ onMounted(() => {
   background: transparent;
   font-size: 16px;
   font-weight: 500;
-  color: #1a1a1a;
+  color: var(--text-primary);
   cursor: pointer;
   outline: none;
   text-align: center;
@@ -432,31 +541,31 @@ onMounted(() => {
   padding: 6px 20px;
   border-radius: 25px;
   border: none;
-  background: white;
-  color: #6b7280;
+  background: var(--card-bg);
+  color: var(--text-secondary);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  border: 1px solid #f0f0f0;
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--card-border);
 }
 
 .today-btn:hover {
-  background: #e5e7eb;
-  color: #1a1a1a;
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .view-switch {
   display: flex;
   gap: 10px;
   margin-bottom: 20px;
-  background: white;
+  background: var(--card-bg);
   padding: 6px;
   border-radius: 40px;
   width: fit-content;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  border: 1px solid #f0f0f0;
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--card-border);
 }
 
 .view-btn {
@@ -467,17 +576,17 @@ onMounted(() => {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  color: #6b7280;
+  color: var(--text-secondary);
   transition: all 0.2s;
 }
 
 .view-btn:hover {
-  background: #f3f4f6;
+  background: var(--bg-hover);
 }
 
 .view-btn.active {
-  background: #e5e7eb;
-  color: #1a1a1a;
+  background: var(--bg-hover);
+  color: var(--text-primary);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
@@ -487,11 +596,11 @@ onMounted(() => {
   gap: 24px;
   margin-bottom: 20px;
   padding: 10px 16px;
-  background: white;
+  background: var(--card-bg);
   border-radius: 30px;
   width: fit-content;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  border: 1px solid #f0f0f0;
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--card-border);
 }
 
 .legend-item {
@@ -499,7 +608,7 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .legend-badge {
@@ -518,7 +627,7 @@ onMounted(() => {
 
 .today-badge {
   background: #dbeafe;
-  border: 1px solid #6b7280;
+  border: 1px solid var(--text-secondary);
 }
 
 .weekdays {
@@ -533,19 +642,19 @@ onMounted(() => {
   padding: 10px;
   font-size: 13px;
   font-weight: 500;
-  color: #6b7280;
-  background: #f5f0e8;
+  color: var(--text-secondary);
+  background: var(--card-bg);
   border-radius: 10px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  border: 1px solid #f0f0f0;
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--card-border);
 }
 
 .calendar-grid-wrapper {
-  background: #f5f0e8;
+  background: var(--card-bg);
   border-radius: 14px;
   padding: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  border: 1px solid #f0f0f0;
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--card-border);
 }
 
 .calendar-grid {
@@ -555,28 +664,28 @@ onMounted(() => {
 }
 
 .calendar-day {
-  background: #f5f0e8;
+  background: var(--card-bg);
   border-radius: 12px;
   min-height: 100px;
   padding: 10px;
   cursor: pointer;
   transition: all 0.2s;
-  border: 1px solid #f0f0f0;
+  border: 1px solid var(--card-border);
 }
 
 .calendar-day:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--card-shadow-hover);
 }
 
 .other-month {
-  background: #fafafa;
+  background: var(--bg-hover);
   opacity: 0.6;
 }
 
 .today {
-  border: 2px solid #6b7280;
-  background: #ede8e0;
+  border: 2px solid var(--accent);
+  background: var(--accent-soft);
 }
 
 .day-header {
@@ -589,23 +698,23 @@ onMounted(() => {
 .day-number {
   font-size: 16px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .today .day-number {
-  color: #1a1a1a;
+  color: var(--accent);
   font-weight: 700;
 }
 
 .weekday-name {
   font-size: 11px;
-  color: #9ca3af;
+  color: var(--text-secondary);
   margin-left: 4px;
 }
 
 .today-badge-mark {
   font-size: 9px;
-  background: #6b7280;
+  background: var(--accent);
   color: white;
   padding: 2px 8px;
   border-radius: 12px;
@@ -637,11 +746,11 @@ onMounted(() => {
 }
 
 .event-dot.schedule {
-  background: #fbbf24;
+  background: var(--event-schedule-color);
 }
 
 .event-dot.note {
-  background: #34d399;
+  background: var(--event-note-color);
 }
 
 .event-title {
@@ -650,39 +759,39 @@ onMounted(() => {
   text-overflow: ellipsis;
   font-weight: 500;
   font-size: 11px;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .more-events {
   font-size: 10px;
-  color: #9ca3af;
+  color: var(--text-secondary);
   padding: 2px 6px;
 }
 
 .day-view-wrapper {
-  background: #f5f0e8;
+  background: var(--card-bg);
   border-radius: 14px;
   padding: 24px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  border: 1px solid #f0f0f0;
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--card-border);
 }
 
 .day-view-header {
   text-align: center;
   margin-bottom: 24px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--card-border);
 }
 
 .day-view-header h2 {
   margin: 0 0 8px 0;
   font-size: 24px;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .day-view-weekday {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .day-events-list {
@@ -692,11 +801,11 @@ onMounted(() => {
 }
 
 .day-event-item {
-  background: #f5f0e8;
+  background: var(--card-bg);
   border-radius: 12px;
   padding: 16px;
   transition: all 0.2s;
-  border: 1px solid #f0f0f0;
+  border: 1px solid var(--card-border);
 }
 
 .day-event-item.schedule {
@@ -709,14 +818,14 @@ onMounted(() => {
 
 .day-event-type {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-secondary);
   margin-bottom: 8px;
 }
 
 .day-event-title {
   font-size: 16px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin-bottom: 8px;
 }
 
@@ -728,7 +837,7 @@ onMounted(() => {
 
 .day-event-content {
   font-size: 13px;
-  color: #374151;
+  color: var(--text-primary);
   line-height: 1.5;
 }
 
@@ -741,35 +850,20 @@ onMounted(() => {
 
 .tag {
   font-size: 11px;
-  color: #34d399;
-  background: #f0fdf4;
+  color: var(--event-tag-color);
+  background: var(--event-tag-bg);
   padding: 2px 10px;
   border-radius: 16px;
 }
-
 .empty-day {
   text-align: center;
   padding: 60px 20px;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 
 .empty-icon {
   font-size: 48px;
   margin-bottom: 16px;
   opacity: 0.5;
-}
-
-@media (max-width: 900px) {
-  .calendar-page { padding: 16px; }
-  .calendar-grid-wrapper { padding: 10px; }
-  .calendar-grid { gap: 6px; }
-  .calendar-day { min-height: 90px; padding: 8px; }
-}
-
-@media (max-width: 700px) {
-  .calendar-day { min-height: 70px; }
-  .event-item { display: none; }
-  .view-switch { margin-bottom: 12px; }
-  .view-btn { padding: 6px 16px; font-size: 12px; }
 }
 </style>

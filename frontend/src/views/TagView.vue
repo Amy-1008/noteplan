@@ -7,7 +7,7 @@
         <button class="create-btn" @click="addNewTag">+ 新增标签</button>
       </div>
 
-      <!-- 新增标签的编辑行（显示在最上方） -->
+      <!-- 新增标签 -->
       <div v-if="isAdding" class="tag-item add-mode">
         <div class="tag-info">
           <input
@@ -22,8 +22,8 @@
           />
         </div>
         <div class="tag-actions">
-          <button class="action-btn confirm-btn" @click="confirmAdd" title="确认">✓</button>
-          <button class="action-btn cancel-btn" @click="cancelAdd" title="取消">✗</button>
+          <button class="action-btn confirm-btn" @click="confirmAdd">✓</button>
+          <button class="action-btn cancel-btn" @click="cancelAdd">✗</button>
         </div>
       </div>
 
@@ -67,12 +67,12 @@
 
           <div class="tag-actions">
             <template v-if="editingId === tag.id">
-              <button class="action-btn confirm-btn" @click="confirmEdit(tag.id)" title="确认">✓</button>
-              <button class="action-btn cancel-btn" @click="cancelEdit" title="取消">✗</button>
+              <button class="action-btn confirm-btn" @click="confirmEdit(tag.id)">✓</button>
+              <button class="action-btn cancel-btn" @click="cancelEdit">✗</button>
             </template>
             <template v-else>
-              <button class="action-btn edit-btn" @click="startEdit(tag)" title="编辑">✎</button>
-              <button class="action-btn delete-btn" @click="confirmDelete(tag)" title="删除">🗑</button>
+              <button class="action-btn edit-btn" @click="startEdit(tag)">✎</button>
+              <button class="action-btn delete-btn" @click="confirmDelete(tag)">🗑</button>
             </template>
           </div>
         </div>
@@ -85,6 +85,20 @@
         <button class="page-btn" @click="goToPage(currentPage + 1)" :disabled="currentPage === totalPages">下一页 →</button>
       </div>
     </div>
+
+    <!-- 删除确认弹窗 -->
+    <div v-if="showDeleteModal" class="modal-overlay" @click.self="closeDeleteModal">
+      <div class="modal-content">
+        <h3 class="modal-title">确认删除</h3>
+        <p class="modal-message">
+          确定要删除标签 <strong>{{ deleteTarget?.name }}</strong> 吗？
+        </p>
+        <div class="modal-actions">
+          <button class="modal-btn cancel" @click="closeDeleteModal">取消</button>
+          <button class="modal-btn confirm" @click="deleteTag">确认删除</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -92,48 +106,29 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import axios from 'axios'
 
-// API 基础路径
 const API_BASE = 'http://localhost:8080/api'
 
-// 数据
 const tagList = ref([])
 const loading = ref(false)
-
-// 分页相关
 const currentPage = ref(1)
 const pageSize = 10
-
-// 编辑相关
 const editingId = ref(null)
 const editName = ref('')
-const originalName = ref('')
-
-// 新增相关
 const isAdding = ref(false)
 const newTagName = ref('')
-
-// 删除弹窗相关
 const showDeleteModal = ref(false)
 const deleteTarget = ref(null)
-
-// 输入框引用
 const addInput = ref(null)
 const editInput = ref(null)
 
-// 分页后的标签列表（按 rank 降序排序后分页）
 const paginatedTags = computed(() => {
   const sorted = [...tagList.value].sort((a, b) => b.rank - a.rank)
   const start = (currentPage.value - 1) * pageSize
-  const end = start + pageSize
-  return sorted.slice(start, end)
+  return sorted.slice(start, start + pageSize)
 })
 
-// 总页数
-const totalPages = computed(() => {
-  return Math.ceil(tagList.value.length / pageSize)
-})
+const totalPages = computed(() => Math.ceil(tagList.value.length / pageSize))
 
-// 获取所有标签
 const fetchTags = async () => {
   loading.value = true
   try {
@@ -148,7 +143,6 @@ const fetchTags = async () => {
   }
 }
 
-// 切换 rank 状态
 const toggleRank = async (tag) => {
   const newRank = tag.rank === 1 ? 0 : 1
   try {
@@ -164,24 +158,16 @@ const toggleRank = async (tag) => {
   }
 }
 
-// 开始编辑
 const startEdit = (tag) => {
   editingId.value = tag.id
   editName.value = tag.name
-  originalName.value = tag.name
-  nextTick(() => {
-    editInput.value?.focus()
-  })
+  nextTick(() => editInput.value?.focus())
 }
 
-// 确认编辑
 const confirmEdit = async (id) => {
   const trimmedName = editName.value.trim()
   if (!trimmedName) return
-
   const targetTag = tagList.value.find(t => t.id === id)
-  if (!targetTag) return
-
   try {
     const response = await axios.put(`${API_BASE}/tags/${id}`, {
       name: trimmedName,
@@ -196,36 +182,27 @@ const confirmEdit = async (id) => {
   }
 }
 
-// 取消编辑
 const cancelEdit = () => {
   editingId.value = null
   editName.value = ''
-  originalName.value = ''
 }
 
-// 确认删除
 const confirmDelete = (tag) => {
   deleteTarget.value = tag
   showDeleteModal.value = true
 }
 
-// 关闭删除弹窗
 const closeDeleteModal = () => {
   showDeleteModal.value = false
   deleteTarget.value = null
 }
 
-// 执行删除
 const deleteTag = async () => {
   if (!deleteTarget.value) return
-
   try {
     const response = await axios.delete(`${API_BASE}/tags/${deleteTarget.value.id}`)
     if (response.data.code === 200) {
       tagList.value = tagList.value.filter(t => t.id !== deleteTarget.value.id)
-      if (paginatedTags.value.length === 0 && currentPage.value > 1) {
-        currentPage.value--
-      }
       closeDeleteModal()
     }
   } catch (error) {
@@ -234,21 +211,16 @@ const deleteTag = async () => {
   }
 }
 
-// 新增标签
 const addNewTag = () => {
   if (isAdding.value) return
   isAdding.value = true
   newTagName.value = ''
-  nextTick(() => {
-    addInput.value?.focus()
-  })
+  nextTick(() => addInput.value?.focus())
 }
 
-// 确认新增
 const confirmAdd = async () => {
   const trimmedName = newTagName.value.trim()
   if (!trimmedName) return
-
   try {
     const response = await axios.post(`${API_BASE}/tags`, {
       name: trimmedName,
@@ -264,25 +236,20 @@ const confirmAdd = async () => {
   }
 }
 
-// 取消新增
 const cancelAdd = () => {
   isAdding.value = false
   newTagName.value = ''
 }
 
-// 分页跳转
 const goToPage = (page) => {
   if (page < 1 || page > totalPages.value) return
   currentPage.value = page
 }
 
-onMounted(() => {
-  fetchTags()
-})
+onMounted(() => fetchTags())
 </script>
 
 <style scoped>
-/* ================= 页面容器 ================= */
 .page-container {
   padding: 24px 32px;
   height: 100%;
@@ -296,13 +263,11 @@ onMounted(() => {
   max-width: 680px;
 }
 
-/* ================= 头部 ================= */
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
-  flex-shrink: 0;
   width: 100%;
 }
 
@@ -320,15 +285,8 @@ onMounted(() => {
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  font-size: 14px;
-  transition: 0.2s;
 }
 
-.create-btn:hover {
-  background: #f59e0b;
-}
-
-/* ================= 标签列表 ================= */
 .tag-list {
   background: white;
   border-radius: 14px;
@@ -341,7 +299,6 @@ onMounted(() => {
   align-items: center;
   padding: 12px 16px;
   border-bottom: 1px solid #f0f0f0;
-  transition: background 0.2s;
 }
 
 .tag-item:last-child {
@@ -367,25 +324,15 @@ onMounted(() => {
   gap: 12px;
 }
 
-/* ================= 星星按钮 ================= */
 .star-btn {
   background: none;
   border: none;
   cursor: pointer;
   padding: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.1s;
-}
-
-.star-btn:hover {
-  transform: scale(1.1);
 }
 
 .star {
   font-size: 18px;
-  line-height: 1;
 }
 
 .star.filled {
@@ -396,11 +343,6 @@ onMounted(() => {
   color: #d1d5db;
 }
 
-.star.empty:hover {
-  color: #fbbf24;
-}
-
-/* ================= 标签名称 ================= */
 .tag-name {
   font-size: 16px;
   color: #1a1a1a;
@@ -414,14 +356,8 @@ onMounted(() => {
   font-size: 14px;
   outline: none;
   background: white;
-  transition: 0.2s;
 }
 
-.tag-input:focus {
-  border-color: #4f8cff;
-}
-
-/* ================= 操作按钮 ================= */
 .tag-actions {
   display: flex;
   gap: 8px;
@@ -434,10 +370,6 @@ onMounted(() => {
   border-radius: 6px;
   font-size: 14px;
   cursor: pointer;
-  transition: 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .edit-btn {
@@ -445,19 +377,9 @@ onMounted(() => {
   color: #6b7280;
 }
 
-.edit-btn:hover {
-  background: #e5e7eb;
-  color: #374151;
-}
-
 .delete-btn {
   background: #fee2e2;
   color: #ef4444;
-}
-
-.delete-btn:hover {
-  background: #fecaca;
-  color: #dc2626;
 }
 
 .confirm-btn {
@@ -465,21 +387,11 @@ onMounted(() => {
   color: white;
 }
 
-.confirm-btn:hover {
-  background: #16a34a;
-}
-
 .cancel-btn {
   background: #e5e7eb;
   color: #6b7280;
 }
 
-.cancel-btn:hover {
-  background: #d1d5db;
-  color: #374151;
-}
-
-/* ================= 分页 ================= */
 .pagination {
   display: flex;
   justify-content: center;
@@ -494,12 +406,6 @@ onMounted(() => {
   background: #f3f4f6;
   border-radius: 8px;
   cursor: pointer;
-  font-size: 14px;
-  transition: 0.2s;
-}
-
-.page-btn:hover:not(:disabled) {
-  background: #e5e7eb;
 }
 
 .page-btn:disabled {
@@ -512,16 +418,54 @@ onMounted(() => {
   color: #6b7280;
 }
 
-/* ================= 状态 ================= */
-.loading-state {
-  text-align: center;
-  padding: 40px 20px;
-  color: #9ca3af;
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
 }
 
-.empty-state {
-  text-align: center;
-  padding: 60px 20px;
-  color: #9ca3af;
+.modal-content {
+  background: white;
+  border-radius: 14px;
+  padding: 24px;
+  max-width: 400px;
+  width: 90%;
+}
+
+.modal-title {
+  margin: 0 0 12px 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.modal-btn {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.modal-btn.cancel {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.modal-btn.confirm {
+  background: #ef4444;
+  color: white;
 }
 </style>

@@ -1,15 +1,47 @@
 <script setup>
-import { RouterView } from 'vue-router'
-import { onMounted } from 'vue'
+import { RouterView, useRoute } from 'vue-router'
+import { ref, onMounted, computed } from 'vue'
 import '@/styles/theme.css'
 import Sidebar from '@/components/Sidebar.vue'
 import { useNoteStore } from '@/store/note'
 
 const store = useNoteStore()
+const route = useRoute()
+
+// 深色模式状态
+const isDarkMode = ref(false)
+
+// 切换深色模式
+const toggleTheme = () => {
+  isDarkMode.value = !isDarkMode.value
+  if (isDarkMode.value) {
+    document.documentElement.setAttribute('data-theme', 'dark')
+    localStorage.setItem('theme', 'dark')
+  } else {
+    document.documentElement.removeAttribute('data-theme')
+    localStorage.setItem('theme', 'light')
+  }
+}
+
+// 初始化主题
+const initTheme = () => {
+  const savedTheme = localStorage.getItem('theme')
+  if (savedTheme === 'dark') {
+    isDarkMode.value = true
+    document.documentElement.setAttribute('data-theme', 'dark')
+  }
+}
+
+// 判断是否显示 Sidebar
+const showSidebar = computed(() => {
+  const hiddenRoutes = ['/calendar', '/search']
+  return !hiddenRoutes.includes(route.path)
+})
 
 onMounted(async () => {
   await store.fetchNotes()
   await store.fetchTags()
+  initTheme()
 })
 </script>
 
@@ -21,21 +53,22 @@ onMounted(async () => {
         <h1 class="logo">NotePlan</h1>
         <nav class="nav">
           <RouterLink to="/">首页</RouterLink>
-          <RouterLink to="/notes/edit">笔记</RouterLink>
+          <RouterLink to="/notes/edit">新建笔记</RouterLink>
           <RouterLink to="/schedules">日程</RouterLink>
           <RouterLink to="/calendar">日历</RouterLink>
           <RouterLink to="/tags">标签</RouterLink>
         </nav>
+        <!-- ✅ 主题切换按钮 -->
+        <button class="theme-toggle" @click="toggleTheme" :title="isDarkMode ? '切换到浅色模式' : '切换到深色模式'">
+          <span class="icon">{{ isDarkMode ? '☀️' : '💡' }}</span>
+        </button>
       </div>
     </header>
 
     <!-- 主内容区 -->
     <main class="main">
       <div class="main-inner">
-        <!-- 左侧 Sidebar -->
-        <Sidebar class="sidebar-wrapper" />
-
-        <!-- 右侧路由内容 -->
+        <Sidebar v-if="showSidebar" class="sidebar-wrapper" />
         <div class="content-wrapper">
           <RouterView :key="$route.fullPath" />
         </div>
@@ -48,18 +81,8 @@ onMounted(async () => {
 </template>
 
 <style>
-:root {
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  color: #1a1a1a;
-  background: #fafafa;
-}
-
 * {
   box-sizing: border-box;
-}
-
-body {
-  margin: 0;
 }
 
 .app {
@@ -72,9 +95,10 @@ body {
 .header {
   display: flex;
   justify-content: center;
-  background: #fff;
-  border-bottom: 1px solid #e5e7eb;
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--header-border);
   flex-shrink: 0;
+  transition: background 0.3s, border-color 0.3s;
 }
 
 .header-inner {
@@ -90,6 +114,7 @@ body {
   margin: 0;
   font-size: 1.25rem;
   font-weight: 600;
+  color: var(--text-primary);
 }
 
 .nav {
@@ -99,7 +124,7 @@ body {
 }
 
 .nav a {
-  color: #4b5563;
+  color: var(--header-text);
   text-decoration: none;
   padding: 4px 8px;
   border-radius: 6px;
@@ -107,12 +132,33 @@ body {
 }
 
 .nav a:hover {
-  background: #f3f4f6;
+  background: var(--bg-hover);
 }
 
 .nav a.router-link-active {
-  color: #2563eb;
-  font-weight: 600;
+  color: var(--header-active);
+}
+
+/* 主题切换按钮 */
+.theme-toggle {
+  margin-left: auto;
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  transition: 0.2s;
+  color: var(--text-primary);
+}
+
+.theme-toggle:hover {
+  background: var(--bg-hover);
+  transform: scale(1.1);
+}
+
+.icon {
+  display: block;
 }
 
 /* 主内容区 */
@@ -139,6 +185,8 @@ body {
   flex: 1;
   overflow-y: auto;
   padding: 0;
+  background: var(--bg-primary);
+  transition: background 0.3s;
 }
 
 /* 全局 FAB 按钮 */
