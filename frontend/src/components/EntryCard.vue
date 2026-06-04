@@ -27,6 +27,7 @@
       <div class="expanded-header">
         <button class="collapse-btn" @click="collapse">← 收起</button>
         <div class="expanded-actions">
+          <button class="action-btn history" @click="viewHistory">📜 历史</button>
           <button class="action-btn edit" @click="editNote">编辑</button>
           <button class="action-btn delete" @click="handleDeleteNote">删除</button>
         </div>
@@ -60,7 +61,13 @@ import { deleteNote as deleteNoteApi } from '@/api/note'  // ✅ 重命名导入
 const props = defineProps({
   note: Object
 })
-
+// 查看历史版本
+// 查看历史版本
+const viewHistory = () => {
+  // 先设置当前笔记为 activeNote，这样 NoteEdit 可以读取
+  store.setActiveNote(props.note)
+  router.push(`/notes/edit/${props.note.id}`)
+}
 const router = useRouter()
 const store = useNoteStore()
 const isExpanded = ref(false)

@@ -93,28 +93,43 @@ public class ScheduleService {
             return;
         }
 
-        if ("none".equals(schedule.getRepeatRule())) {
-            scheduleMapper.updateComplete(id, completed);
-        } else {
+        // 更新 completed 状态
+        scheduleMapper.updateComplete(id, completed);
+
+        // 如果是重复日程且标记为完成，则更新时间为下一次
+        if (completed == 1 && !"none".equals(schedule.getRepeatRule())) {
             LocalDateTime newEndTime = calculateNextTime(schedule.getEndTime(), schedule.getRepeatRule());
             LocalDateTime newStartTime = schedule.getStartTime() != null
                     ? calculateNextTime(schedule.getStartTime(), schedule.getRepeatRule())
                     : null;
-
             scheduleMapper.updateTime(id, newStartTime, newEndTime);
+            // 重新将 completed 设为 0，因为新的日程需要再次完成
+            scheduleMapper.updateComplete(id, 0);
         }
     }
 
     private LocalDateTime calculateNextTime(LocalDateTime current, String repeatRule) {
+        LocalDateTime next = current;
         switch (repeatRule) {
-            case "daily": return current.plusDays(1);
-            case "weekly": return current.plusWeeks(1);
-            case "monthly": return current.plusMonths(1);
-            case "yearly": return current.plusYears(1);
-            case "workday": return getNextWorkday(current);
-            case "holiday": return getNextHoliday(current);
+            case "daily": next = current.plusDays(1); break;
+            case "weekly": next = current.plusWeeks(1); break;
+            case "monthly": next = current.plusMonths(1); break;
+            case "yearly": next = current.plusYears(1); break;
+            case "workday":
+                next = current.plusDays(1);
+                while (next.getDayOfWeek().getValue() >= 6) {
+                    next = next.plusDays(1);
+                }
+                break;
+            case "holiday":
+                next = current.plusDays(1);
+                while (next.getDayOfWeek().getValue() < 6) {
+                    next = next.plusDays(1);
+                }
+                break;
             default: return current;
         }
+        return next;
     }
 
     // 获取下一个工作日（周一至周五）

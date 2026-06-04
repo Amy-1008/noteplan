@@ -85,6 +85,8 @@ watch(() => props.date, () => {
 <style scoped>
 .daily-detail {
   padding: 20px;
+  background: var(--card-bg);
+  transition: background 0.3s;
 }
 
 .section {
@@ -97,7 +99,7 @@ watch(() => props.date, () => {
   gap: 8px;
   margin-bottom: 16px;
   padding-bottom: 8px;
-  border-bottom: 2px solid #E8F4F8;
+  border-bottom: 2px solid var(--card-border);
 }
 
 .section-icon {
@@ -107,33 +109,34 @@ watch(() => props.date, () => {
 .section-title {
   font-size: 16px;
   font-weight: 600;
-  color: #2C6B8F;
+  color: var(--text-primary);
 }
 
 .section-count {
   margin-left: auto;
-  background: #E8F4F8;
+  background: var(--bg-hover);
   padding: 2px 10px;
   border-radius: 20px;
   font-size: 12px;
-  color: #4A90D9;
+  color: var(--text-secondary);
 }
 
 .schedule-item {
   display: flex;
   gap: 16px;
   padding: 14px;
-  background: #FFF5E8;
+  background: var(--schedule-bg);
   border-radius: 12px;
   margin-bottom: 10px;
-  border-left: 3px solid #E8A735;
+  border-left: 3px solid var(--schedule-time-color);
+  transition: background 0.3s;
 }
 
 .schedule-time {
   min-width: 80px;
   font-size: 13px;
   font-weight: 500;
-  color: #E8A735;
+  color: var(--schedule-time-color);
 }
 
 .schedule-info {
@@ -143,13 +146,13 @@ watch(() => props.date, () => {
 .schedule-name {
   font-size: 15px;
   font-weight: 500;
-  color: #2C6B8F;
+  color: var(--text-primary);
   margin-bottom: 4px;
 }
 
 .schedule-remark {
   font-size: 12px;
-  color: #8BB3CA;
+  color: var(--text-secondary);
   margin-bottom: 6px;
 }
 
@@ -162,8 +165,8 @@ watch(() => props.date, () => {
 
 .schedule-tags .tag, .note-tags .tag {
   font-size: 10px;
-  color: #E8A735;
-  background: #FFF0D4;
+  color: var(--schedule-time-color);
+  background: var(--card-bg);
   padding: 2px 8px;
   border-radius: 12px;
 }
@@ -176,46 +179,47 @@ watch(() => props.date, () => {
 }
 
 .schedule-status.pending {
-  background: #FFE7BA;
-  color: #E8A735;
+  background: var(--schedule-status-pending-bg);
+  color: var(--schedule-status-pending-color);
 }
 
 .schedule-status.completed {
-  background: #D9F0D9;
-  color: #52C41A;
+  background: var(--schedule-status-completed-bg);
+  color: var(--schedule-status-completed-color);
 }
 
 .note-item {
   padding: 14px;
-  background: #E8FCE8;
+  background: var(--note-bg);
   border-radius: 12px;
   margin-bottom: 10px;
-  border-left: 3px solid #52C41A;
+  border-left: 3px solid var(--note-border-color);
+  transition: background 0.3s;
 }
 
 .note-title {
   font-size: 15px;
   font-weight: 500;
-  color: #2C6B8F;
+  color: var(--text-primary);
   margin-bottom: 6px;
 }
 
 .note-time {
   font-size: 11px;
-  color: #8BB3CA;
+  color: var(--text-secondary);
   margin-bottom: 8px;
 }
 
 .note-content {
   font-size: 13px;
-  color: #5A7E9A;
+  color: var(--text-primary);
   line-height: 1.5;
   margin-bottom: 8px;
 }
 
 .note-tags .tag {
-  color: #52C41A;
-  background: white;
+  color: var(--note-border-color);
+  background: var(--note-tag-bg);
 }
 
 .empty {
@@ -231,6 +235,6 @@ watch(() => props.date, () => {
 
 .empty-text {
   font-size: 14px;
-  color: #8BB3CA;
+  color: var(--text-secondary);
 }
 </style>

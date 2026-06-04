@@ -12,7 +12,7 @@ const routes = [
   {
     path: '/notes/edit/:id?', // 可选参数，无id时表示新建
     name: 'note-edit',
-    component: NoteEdit,
+    component: () => import('@/views/NoteEdit.vue')
   },
   {
     path: '/schedules',

@@ -9,15 +9,14 @@ export const useNoteStore = defineStore('note', {
     state: () => ({
         notes: [],
         tags: [],
+        scheduleList: [], // ✅ 新增：存储日程列表
         activeTag: '全部',
-        activeNote: null   // ✅ 新增
+        activeNote: null
     }),
 
     getters: {
-        // ✅ 核心：标签过滤
         filteredNotes(state) {
             if (state.activeTag === '全部') return state.notes
-
             return state.notes.filter(note => {
                 if (Array.isArray(note.tags)) {
                     return note.tags.includes(state.activeTag)
@@ -30,6 +29,26 @@ export const useNoteStore = defineStore('note', {
                 }
                 return false
             })
+        },
+        // 按标签统计笔记数量
+        tagCountInNotes(state) {
+            const counts = {}
+            state.notes.forEach(n => {
+                let tagName = '未分类'
+                if (n.tags && Array.isArray(n.tags) && n.tags.length > 0) {
+                    tagName = n.tags[0]
+                } else if (n.tag) {
+                    tagName = n.tag
+                } else if (n.category) {
+                    tagName = n.category
+                } else if (n.tagId && state.tags) {
+                    const tag = state.tags.find(t => t.id === n.tagId)
+                    if (tag) tagName = tag.name
+                }
+                if (!counts[tagName]) counts[tagName] = 0
+                counts[tagName]++
+            })
+            return counts
         }
     },
 
@@ -54,12 +73,14 @@ export const useNoteStore = defineStore('note', {
             }
         },
 
-        setActiveTag(tag) {
-            this.activeTag = tag
-        },
-
-        setActiveNote(note) {   // ✅ 新增
-            this.activeNote = note
+        async fetchScheduleList() {
+            try {
+                const res = await api.get('/api/schedule/list')
+                this.scheduleList = res.data.data || []
+            } catch (e) {
+                console.error('fetchScheduleList error:', e)
+                this.scheduleList = []
+            }
         },
 
         async createNote() {
@@ -69,6 +90,14 @@ export const useNoteStore = defineStore('note', {
             } catch (e) {
                 console.error('createNote error:', e)
             }
+        },
+
+        setActiveTag(tag) {
+            this.activeTag = tag
+        },
+
+        setActiveNote(note) {
+            this.activeNote = note
         }
     }
 })
