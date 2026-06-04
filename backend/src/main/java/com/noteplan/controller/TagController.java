@@ -54,7 +54,7 @@ public class TagController {
     }
     //标签绑定
 
-   //为目标绑定/修改标签（若传入null则代表解绑当前标签）
+    //为目标绑定/修改标签（若传入null则代表解绑当前标签）
     @PostMapping("/bind")
     public Result<Void> bindTag(@RequestParam Long targetId,
                                 @RequestParam String targetType,

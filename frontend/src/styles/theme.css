@@ -1,0 +1,172 @@
+/* ================= THEME SYSTEM ================= */
+
+/* 默认：浅色 */
+:root {
+  --bg-primary: #f6f7f9;
+  --bg-secondary: #ffffff;
+  --bg-hover: #f0f2f5;
+
+  --text-primary: #1c1c1e;
+  --text-secondary: #6b6b6f;
+
+  --border-color: #e5e7eb;
+
+  --accent: #4f8cff;
+  --accent-soft: rgba(79, 140, 255, 0.1);
+
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+
+  --shadow-sm: 0 2px 6px rgba(0,0,0,0.05);
+  --shadow-md: 0 6px 18px rgba(0,0,0,0.08);
+
+  --transition: all 0.25s ease;
+}
+
+/* 深色模式 */
+[data-theme="dark"] {
+  --bg-primary: #1e1f24;
+  --bg-secondary: #2a2b31;
+  --bg-hover: #32333a;
+
+  --text-primary: #f5f5f7;
+  --text-secondary: #a1a1a6;
+
+  --border-color: #3a3b42;
+
+  --accent: #4f8cff;
+  --accent-soft: rgba(79, 140, 255, 0.2);
+
+  --shadow-sm: 0 2px 6px rgba(0,0,0,0.3);
+  --shadow-md: 0 8px 24px rgba(0,0,0,0.4);
+}
+
+/* ================= GLOBAL RESET ================= */
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  transition: var(--transition);
+}
+
+/* 卡片统一风格 */
+.card {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 16px;
+  transition: var(--transition);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+/* 按钮 */
+.btn {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.btn:hover {
+  opacity: 0.9;
+}
+
+/* 输入框 */
+.input {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  color: var(--text-primary);
+}
+
+.input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+/* ================= 通用页面样式 ================= */
+
+.page-container {
+  padding: 24px 32px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.page-inner {
+  width: 100%;
+  max-width: 680px;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-shrink: 0;
+  width: 100%;
+}
+
+.page-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.page-content {
+  flex: 1;
+  overflow-y: auto;
+  width: 100%;
+}
+
+/* ================= 卡片样式 ================= */
+
+.card {
+  background: white;
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  border: 1px solid #f0f0f0;
+  padding: 16px 20px;
+  transition: 0.2s;
+}
+
+.card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+/* ================= 标签显示 ================= */
+
+.tag-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f3f4f6;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  color: #4b5563;
+}
+
+.tag-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* ================= 空状态 ================= */
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #9ca3af;
+}

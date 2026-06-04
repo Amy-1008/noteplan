@@ -354,8 +354,8 @@ onMounted(() => {
 }
 
 .calendar-page {
-  min-height: 100vh;
-  background: linear-gradient(135deg, #D4EEFF 0%, #B8E1FF 100%);
+  min-height: 100%;
+  background: #fafafa;
   padding: 24px 32px;
 }
 
@@ -365,19 +365,19 @@ onMounted(() => {
   align-items: flex-end;
   margin-bottom: 24px;
   padding-bottom: 16px;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.6);
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .logo-section h1 {
   margin: 0;
   font-size: 26px;
   font-weight: 500;
-  color: #2C6B8F;
+  color: #1a1a1a;
 }
 
 .logo-section p {
   margin: 6px 0 0;
-  color: #5BA3C7;
+  color: #6b7280;
   font-size: 13px;
 }
 
@@ -395,14 +395,15 @@ onMounted(() => {
   background: white;
   font-size: 22px;
   cursor: pointer;
-  color: #4A90D9;
+  color: #6b7280;
   transition: all 0.2s;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  border: 1px solid #f0f0f0;
 }
 
 .month-btn:hover {
-  background: #4A90D9;
-  color: white;
+  background: #e5e7eb;
+  color: #1a1a1a;
 }
 
 .year-month-selector {
@@ -411,7 +412,8 @@ onMounted(() => {
   background: white;
   padding: 4px 12px;
   border-radius: 30px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  border: 1px solid #f0f0f0;
 }
 
 .year-select, .month-select {
@@ -420,7 +422,7 @@ onMounted(() => {
   background: transparent;
   font-size: 16px;
   font-weight: 500;
-  color: #2C6B8F;
+  color: #1a1a1a;
   cursor: pointer;
   outline: none;
   text-align: center;
@@ -431,27 +433,30 @@ onMounted(() => {
   border-radius: 25px;
   border: none;
   background: white;
-  color: #4A90D9;
+  color: #6b7280;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  border: 1px solid #f0f0f0;
 }
 
 .today-btn:hover {
-  background: #4A90D9;
-  color: white;
+  background: #e5e7eb;
+  color: #1a1a1a;
 }
 
 .view-switch {
   display: flex;
   gap: 10px;
   margin-bottom: 20px;
-  background: rgba(255, 255, 255, 0.4);
+  background: white;
   padding: 6px;
   border-radius: 40px;
   width: fit-content;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  border: 1px solid #f0f0f0;
 }
 
 .view-btn {
@@ -462,17 +467,17 @@ onMounted(() => {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  color: #2C6B8F;
+  color: #6b7280;
   transition: all 0.2s;
 }
 
 .view-btn:hover {
-  background: rgba(255, 255, 255, 0.6);
+  background: #f3f4f6;
 }
 
 .view-btn.active {
-  background: white;
-  color: #4A90D9;
+  background: #e5e7eb;
+  color: #1a1a1a;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
@@ -482,9 +487,11 @@ onMounted(() => {
   gap: 24px;
   margin-bottom: 20px;
   padding: 10px 16px;
-  background: rgba(255, 255, 255, 0.7);
+  background: white;
   border-radius: 30px;
   width: fit-content;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  border: 1px solid #f0f0f0;
 }
 
 .legend-item {
@@ -492,7 +499,7 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: #2C6B8F;
+  color: #6b7280;
 }
 
 .legend-badge {
@@ -502,16 +509,16 @@ onMounted(() => {
 }
 
 .schedule-badge {
-  background: #E8A735;
+  background: #fbbf24;
 }
 
 .note-badge {
-  background: #52C41A;
+  background: #34d399;
 }
 
 .today-badge {
-  background: #E8F4FF;
-  border: 1px solid #4A90D9;
+  background: #dbeafe;
+  border: 1px solid #6b7280;
 }
 
 .weekdays {
@@ -526,15 +533,19 @@ onMounted(() => {
   padding: 10px;
   font-size: 13px;
   font-weight: 500;
-  color: #4A90D9;
-  background: rgba(255, 255, 255, 0.6);
+  color: #6b7280;
+  background: #f5f0e8;
   border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  border: 1px solid #f0f0f0;
 }
 
 .calendar-grid-wrapper {
-  background: rgba(255, 255, 255, 0.4);
-  border-radius: 20px;
+  background: #f5f0e8;
+  border-radius: 14px;
   padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  border: 1px solid #f0f0f0;
 }
 
 .calendar-grid {
@@ -544,29 +555,28 @@ onMounted(() => {
 }
 
 .calendar-day {
-  background: white;
+  background: #f5f0e8;
   border-radius: 12px;
   min-height: 100px;
   padding: 10px;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  border: 1px solid #f0f0f0;
 }
 
 .calendar-day:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  background: #FFFFFF;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
 }
 
 .other-month {
-  background: rgba(255, 255, 255, 0.5);
+  background: #fafafa;
   opacity: 0.6;
 }
 
 .today {
-  border: 2px solid #4A90D9;
-  background: #F0F8FF;
+  border: 2px solid #6b7280;
+  background: #ede8e0;
 }
 
 .day-header {
@@ -579,23 +589,23 @@ onMounted(() => {
 .day-number {
   font-size: 16px;
   font-weight: 600;
-  color: #2C6B8F;
+  color: #1a1a1a;
 }
 
 .today .day-number {
-  color: #4A90D9;
+  color: #1a1a1a;
   font-weight: 700;
 }
 
 .weekday-name {
   font-size: 11px;
-  color: #8BB3CA;
+  color: #9ca3af;
   margin-left: 4px;
 }
 
 .today-badge-mark {
   font-size: 9px;
-  background: #4A90D9;
+  background: #6b7280;
   color: white;
   padding: 2px 8px;
   border-radius: 12px;
@@ -627,11 +637,11 @@ onMounted(() => {
 }
 
 .event-dot.schedule {
-  background: #E8A735;
+  background: #fbbf24;
 }
 
 .event-dot.note {
-  background: #52C41A;
+  background: #34d399;
 }
 
 .event-title {
@@ -640,37 +650,39 @@ onMounted(() => {
   text-overflow: ellipsis;
   font-weight: 500;
   font-size: 11px;
-  color: #2C6B8F;
+  color: #1a1a1a;
 }
 
 .more-events {
   font-size: 10px;
-  color: #8BB3CA;
+  color: #9ca3af;
   padding: 2px 6px;
 }
 
 .day-view-wrapper {
-  background: rgba(255, 255, 255, 0.4);
-  border-radius: 20px;
+  background: #f5f0e8;
+  border-radius: 14px;
   padding: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  border: 1px solid #f0f0f0;
 }
 
 .day-view-header {
   text-align: center;
   margin-bottom: 24px;
   padding-bottom: 16px;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.6);
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .day-view-header h2 {
   margin: 0 0 8px 0;
   font-size: 24px;
-  color: #2C6B8F;
+  color: #1a1a1a;
 }
 
 .day-view-weekday {
   font-size: 14px;
-  color: #5BA3C7;
+  color: #6b7280;
 }
 
 .day-events-list {
@@ -680,42 +692,43 @@ onMounted(() => {
 }
 
 .day-event-item {
-  background: white;
+  background: #f5f0e8;
   border-radius: 12px;
   padding: 16px;
   transition: all 0.2s;
+  border: 1px solid #f0f0f0;
 }
 
 .day-event-item.schedule {
-  border-left: 4px solid #E8A735;
+  border-left: 4px solid #fbbf24;
 }
 
 .day-event-item.note {
-  border-left: 4px solid #52C41A;
+  border-left: 4px solid #34d399;
 }
 
 .day-event-type {
   font-size: 12px;
-  color: #8BB3CA;
+  color: #6b7280;
   margin-bottom: 8px;
 }
 
 .day-event-title {
   font-size: 16px;
   font-weight: 600;
-  color: #2C6B8F;
+  color: #1a1a1a;
   margin-bottom: 8px;
 }
 
 .day-event-time {
   font-size: 12px;
-  color: #E8A735;
+  color: #fbbf24;
   margin-bottom: 6px;
 }
 
 .day-event-content {
   font-size: 13px;
-  color: #5A7E9A;
+  color: #374151;
   line-height: 1.5;
 }
 
@@ -728,8 +741,8 @@ onMounted(() => {
 
 .tag {
   font-size: 11px;
-  color: #52C41A;
-  background: #E0F5E0;
+  color: #34d399;
+  background: #f0fdf4;
   padding: 2px 10px;
   border-radius: 16px;
 }
@@ -737,7 +750,7 @@ onMounted(() => {
 .empty-day {
   text-align: center;
   padding: 60px 20px;
-  color: #8BB3CA;
+  color: #9ca3af;
 }
 
 .empty-icon {

@@ -1,122 +1,110 @@
 <template>
   <div class="note-edit-container">
-    <el-card>
-      <template #header>
-        <div class="card-header">
-          <div class="header-left">
-            <el-button
-                v-if="returnToScheduleId"
-                @click="goBackToSchedule"
-                size="small"
-            >
-              <el-icon><ArrowLeft /></el-icon> 返回日程
-            </el-button>
-            <span>{{ isEdit ? '编辑笔记' : 'a新建笔记' }}</span>
-          </div>
-          <div>
-            <el-button @click="goBack">取消</el-button>
-            <el-button type="primary" @click="saveNote" :loading="saving">保存</el-button>
-          </div>
-        </div>
-      </template>
-
-      <el-form :model="form" :rules="rules" ref="formRef" label-width="80px">
-        <el-form-item label="标题" prop="title">
-          <el-input v-model="form.title" placeholder="标题（可选，不填将自动从正文截取）" maxlength="500" show-word-limit />
-        </el-form-item>
-
-        <el-form-item label="正文" prop="content">
-          <el-input
-            v-model="form.content"
-            type="textarea"
-            :rows="15"
-            placeholder="请输入内容（最多5000字符）"
-            maxlength="5000"
-            show-word-limit
-          />
-        </el-form-item>
-
-        <el-form-item label="标签">
-          <TagSelector v-model="selectedTagId" @tag-created="handleTagCreated" />
-        </el-form-item>
-
-        <!-- 版本管理（仅编辑模式显示） -->
-        <el-divider v-if="isEdit" />
-        <el-form-item v-if="isEdit" label="版本历史">
-          <el-button text @click="showVersions = !showVersions">
-            {{ showVersions ? '收起' : '查看历史版本' }}
-          </el-button>
-          <div v-if="showVersions" class="version-list">
-            <div v-for="ver in versionList" :key="ver.versionNo" class="version-item">
-              <span>版本 {{ ver.versionNo }} - {{ formatDate(ver.saveTime) }}</span>
-              <el-button text type="primary" size="small" @click="previewVersion(ver)">预览</el-button>
-              <el-button text type="warning" size="small" @click="handleRecoverVersion(ver.versionNo)">恢复此版本</el-button>
-            </div>
-            <el-empty v-if="versionList.length === 0" description="暂无历史版本" />
-          </div>
-        </el-form-item>
-      </el-form>
-    </el-card>
-
-    <!-- 版本预览弹窗 -->
-    <el-dialog v-model="previewVisible" title="版本内容预览" width="60%">
-      <div class="preview-header">
-        <div class="preview-title">{{ previewTitle }}</div>
-        <div class="preview-tag" v-if="previewTagName">
-          <el-tag size="small">{{ previewTagName }}</el-tag>
+    <div class="note-edit-inner">
+      <!-- 顶部导航 -->
+      <div class="edit-header">
+        <button class="back-btn" @click="goBack">← 返回</button>
+        <div class="header-actions">
+          <button class="save-btn" @click="saveNote" :disabled="saving">
+            {{ saving ? '保存中...' : '保存' }}
+          </button>
         </div>
       </div>
-      <el-divider />
-      <pre class="version-preview">{{ previewContent }}</pre>
-      <template #footer>
-        <el-button @click="previewVisible = false">关闭</el-button>
-      </template>
-    </el-dialog>
+
+      <!-- 笔记本主体 -->
+      <div class="notebook">
+        <!-- 左侧：日期栏 -->
+        <div class="date-column">
+          <div class="date-display">
+            <div class="date-number">{{ currentDay }}</div>
+            <div class="date-detail">
+              <div class="date-month">{{ currentMonth }}</div>
+              <div class="date-year">{{ currentYear }}</div>
+              <div class="date-weekday">{{ currentWeekday }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 右侧：内容区域 -->
+        <div class="content-column">
+          <div class="content-header">
+            <input
+                v-model="form.title"
+                type="text"
+                class="title-input"
+                placeholder="标题"
+            />
+          </div>
+
+          <div class="content-body">
+            <textarea
+                v-model="form.content"
+                class="content-textarea"
+                placeholder="开始写点什么..."
+                rows="20"
+            ></textarea>
+          </div>
+
+          <div class="content-footer">
+            <div class="tag-section">
+              <span class="tag-label">标签</span>
+              <TagSelector v-model="form.tagId" @tag-created="handleTagCreated" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { addNote, updateNote, getNoteById } from '@/api/note'
 import TagSelector from '@/components/TagSelector.vue'
-import { addNote, getNoteById, updateNote, getNoteVersions, recoverVersion } from '@/api/note'
 import axios from 'axios'
-import { ArrowLeft } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()
+const saving = ref(false)
+const tagList = ref([])
+
+// 判断是否是编辑模式
 const isEdit = computed(() => !!route.params.id)
 const noteId = computed(() => route.params.id ? parseInt(route.params.id) : null)
 
-// 获取来源页面（从日程详情进入还是从笔记管理进入）
-const fromSchedule = ref(route.query.from === 'schedule' || sessionStorage.getItem('fromSchedule') === 'true')
-const returnToScheduleId = ref(sessionStorage.getItem('returnToSchedule'))
-
-const formRef = ref(null)
-const saving = ref(false)
-const selectedTagId = ref(null)
-
+// 表单数据
 const form = reactive({
   id: null,
   title: '',
-  content: ''
+  content: '',
+  tagId: null
 })
 
-const rules = {
-  content: [{ required: true, message: '正文不能为空', trigger: 'blur' }]
+// 当前日期
+const now = new Date()
+const currentDay = now.getDate()
+const currentMonth = (now.getMonth() + 1) + '月'
+const currentYear = now.getFullYear()
+const currentWeekday = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'][now.getDay()]
+
+// 获取标签列表
+const fetchTags = async () => {
+  try {
+    const res = await axios.get('http://localhost:8080/api/tags')
+    if (res.data.code === 200) {
+      tagList.value = res.data.data || []
+    }
+  } catch (err) {
+    console.error('获取标签列表失败', err)
+  }
 }
 
-// 版本管理
-const previewTagName = ref('')
-const previewTitle = ref('')
-const showVersions = ref(false)
-const versionList = ref([])
-const previewVisible = ref(false)
-const previewContent = ref('')
-
+// 加载笔记数据（编辑模式）
 const loadNote = async () => {
   if (!isEdit.value) return
+
   try {
     const res = await getNoteById(noteId.value)
     if (res.data.code === 200) {
@@ -124,17 +112,13 @@ const loadNote = async () => {
       form.id = note.id
       form.title = note.title || ''
       form.content = note.content || ''
-      // 加载当前笔记的标签
+
+      // 加载标签
       const tagRes = await axios.get('http://localhost:8080/api/tags/target', {
         params: { targetId: note.id, targetType: 'NOTE' }
       })
       if (tagRes.data.code === 200 && tagRes.data.data) {
-        selectedTagId.value = tagRes.data.data.id
-      }
-      // 加载版本列表
-      const verRes = await getNoteVersions(note.id)
-      if (verRes.data.code === 200) {
-        versionList.value = verRes.data.data || []
+        form.tagId = tagRes.data.data.id
       }
     } else {
       ElMessage.error('加载笔记失败')
@@ -146,9 +130,13 @@ const loadNote = async () => {
   }
 }
 
+// 保存笔记
 const saveNote = async () => {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
+  if (!form.content.trim()) {
+    ElMessage.warning('内容不能为空')
+    return
+  }
+
   saving.value = true
   try {
     let res
@@ -164,25 +152,23 @@ const saveNote = async () => {
         content: form.content
       })
     }
+
     if (res.data.code === 200) {
       const savedNote = res.data.data
+
       // 绑定标签
-      if (selectedTagId.value) {
+      if (form.tagId) {
         await axios.post('http://localhost:8080/api/tags/bind', null, {
           params: {
             targetId: savedNote.id,
             targetType: 'NOTE',
-            tagId: selectedTagId.value
+            tagId: form.tagId
           }
         })
-      } else {
-        // 清除标签（如果之前有）
-        await axios.delete('http://localhost:8080/api/tags/clear', {
-          params: { targetId: savedNote.id, targetType: 'NOTE' }
-        })
       }
+
       ElMessage.success(isEdit.value ? '更新成功' : '创建成功')
-      goBack() // 统一使用 goBack 方法
+      goBack()
     } else {
       ElMessage.error(res.data.message || '操作失败')
     }
@@ -193,73 +179,13 @@ const saveNote = async () => {
   }
 }
 
-// 返回逻辑：根据来源决定返回哪里
+// 返回首页
 const goBack = () => {
-  if (fromSchedule.value && returnToScheduleId.value) {
-    // 从日程详情进入，返回日程详情页
-    // 注意：这里不清除 isReturningFromNote，让日程详情页自己处理
-    router.push({ path: '/schedule/detail', query: { id: returnToScheduleId.value } })
-  } else {
-    // 从笔记管理进入，返回笔记管理页
-    router.push('/notes')
-  }
+  router.push('/')
 }
 
-// 返回日程详情页（专门用于点击"返回日程"按钮）
-const goBackToSchedule = () => {
-  // 注意：不清除 isReturningFromNote，让日程详情页自己处理
-  router.push({ path: '/schedule/detail', query: { id: returnToScheduleId.value } })
-}
-
-const handleTagCreated = () => {
-  // 标签创建后无需额外操作
-}
-
-// 预览版本
-const previewVersion = (ver) => {
-  previewContent.value = ver.content
-  previewTitle.value = ver.title || '无标题'
-  if (ver.tagId) {
-    const tag = tagList.value.find(t => t.id === ver.tagId)
-    previewTagName.value = tag ? tag.name : ''
-  } else {
-    previewTagName.value = ''
-  }
-  previewVisible.value = true
-}
-
-// 恢复版本（调用 API）
-const handleRecoverVersion = async (versionNo) => {
-  try {
-    const res = await recoverVersion(noteId.value, versionNo)
-    if (res.data.code === 200) {
-      ElMessage.success('恢复成功，页面即将刷新')
-      loadNote()  // 重新加载笔记和版本列表
-    } else {
-      ElMessage.error(res.data.message || '恢复失败')
-    }
-  } catch (err) {
-    ElMessage.error('恢复失败')
-  }
-}
-
-const formatDate = (dateStr) => {
-  if (!dateStr) return ''
-  const d = new Date(dateStr)
-  return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`
-}
-
-const tagList = ref([])
-
-const fetchTags = async () => {
-  try {
-    const res = await axios.get('http://localhost:8080/api/tags')
-    if (res.data.code === 200) {
-      tagList.value = res.data.data || []
-    }
-  } catch (err) {
-    console.error('获取标签列表失败', err)
-  }
+const handleTagCreated = (newTag) => {
+  fetchTags()
 }
 
 onMounted(() => {
@@ -270,50 +196,186 @@ onMounted(() => {
 
 <style scoped>
 .note-edit-container {
-  max-width: 900px;
-  margin: 0 auto;
+  padding: 24px;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  background: #fafafa;
 }
-.card-header {
+
+.note-edit-inner {
+  width: 100%;
+  max-width: 820px;
+}
+
+/* 顶部导航 */
+.edit-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 20px;
+  flex-shrink: 0;
 }
-.header-left {
+
+.back-btn {
+  background: none;
+  border: none;
+  font-size: 14px;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 4px 12px;
+  border-radius: 6px;
+  transition: 0.2s;
+}
+
+.back-btn:hover {
+  background: #f3f4f6;
+  color: #1a1a1a;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.save-btn {
+  padding: 6px 20px;
+  background: #4f8cff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: 0.2s;
+}
+
+.save-btn:hover {
+  background: #3b7adf;
+}
+
+.save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 笔记本主体 */
+.notebook {
+  display: flex;
+  background: white;
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  border: 1px solid #f0f0f0;
+  overflow: hidden;
+  min-height: 600px;
+}
+
+/* 左侧日期栏 */
+.date-column {
+  width: 140px;
+  padding: 32px 20px;
+  border-right: 1px solid #f0f0f0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.date-display {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.date-number {
+  font-size: 48px;
+  font-weight: 300;
+  color: #1a1a1a;
+  line-height: 1;
+}
+
+.date-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.date-month {
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.date-year {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.date-weekday {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+/* 右侧内容栏 */
+.content-column {
+  flex: 1;
+  padding: 32px 40px;
+  display: flex;
+  flex-direction: column;
+}
+
+.content-header {
+  margin-bottom: 16px;
+}
+
+.title-input {
+  width: 100%;
+  font-size: 28px;
+  font-weight: 600;
+  color: #1a1a1a;
+  border: none;
+  outline: none;
+  background: transparent;
+  padding: 0;
+}
+
+.title-input::placeholder {
+  color: #9ca3af;
+}
+
+.content-body {
+  flex: 1;
+}
+
+.content-textarea {
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+  border: none;
+  outline: none;
+  font-size: 16px;
+  line-height: 1.8;
+  color: #374151;
+  resize: vertical;
+  background: transparent;
+  font-family: inherit;
+}
+
+.content-textarea::placeholder {
+  color: #9ca3af;
+}
+
+.content-footer {
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.tag-section {
   display: flex;
   align-items: center;
   gap: 12px;
 }
-.version-list {
-  margin-top: 8px;
-  border: 1px solid #eee;
-  border-radius: 4px;
-  padding: 8px;
-  max-height: 300px;
-  overflow-y: auto;
-}
-.version-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 6px 0;
-  border-bottom: 1px solid #f0f0f0;
-}
-.version-preview {
-  white-space: pre-wrap;
-  background: #f9f9f9;
-  padding: 12px;
-  border-radius: 4px;
-  max-height: 400px;
-  overflow: auto;
-}
-.preview-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-.preview-title {
-  font-weight: bold;
-  font-size: 18px;
+
+.tag-label {
+  font-size: 13px;
+  color: #6b7280;
 }
 </style>
