@@ -17,12 +17,10 @@
         <!-- 左侧：日期栏 -->
         <div class="date-column">
           <div class="date-display">
-            <div class="date-number">{{ currentDay }}</div>
-            <div class="date-detail">
-              <div class="date-month">{{ currentMonth }}</div>
-              <div class="date-year">{{ currentYear }}</div>
-              <div class="date-weekday">{{ currentWeekday }}</div>
-            </div>
+            <span class="date-year">{{ currentYear }}</span>
+            <span class="date-month">{{ currentMonth }}</span>
+            <span class="date-number">{{ currentDay }}</span>
+            <span class="date-weekday">{{ currentWeekday }}</span>
           </div>
         </div>
 
@@ -47,6 +45,7 @@
             </div>
 
             <div class="time-picker">
+              <!-- 时间点模式 -->
               <el-date-picker
                   v-if="formData.timeType === 'point'"
                   v-model="formData.endTime"
@@ -55,6 +54,7 @@
                   style="width: 100%"
                   @change="handleEndTimeChange"
               />
+              <!-- 时间段模式 -->
               <div v-else class="period-picker">
                 <el-date-picker
                     v-model="formData.startTime"
@@ -107,9 +107,14 @@
             <span class="label">关联笔记</span>
             <div class="notes-display">
               <div class="notes-list">
-                <span v-for="note in selectedNotes" :key="note.id" class="note-tag">
+                <span
+                    v-for="note in selectedNotes"
+                    :key="note.id"
+                    class="note-tag clickable"
+                    @click="goToNoteDetail(note.id)"
+                >
                   {{ note.title }}
-                  <button class="remove-tag" @click="removeNote(note.id)">×</button>
+                  <button class="remove-tag" @click.stop="removeNote(note.id)">×</button>
                 </span>
                 <span v-if="selectedNotes.length === 0" class="placeholder-text">未关联笔记</span>
               </div>
@@ -251,10 +256,7 @@ const getDefaultTime = () => {
 
 const handleEndTimeChange = (val) => {
   if (val && formData.value.timeType === 'point') {
-    const now = new Date()
-    const selectedDate = new Date(val)
-    selectedDate.setHours(now.getHours() + 1, now.getMinutes(), now.getSeconds())
-    formData.value.endTime = formatDateTime(selectedDate)
+    formData.value.endTime = formatDateTime(new Date(val))
   }
 }
 
@@ -263,7 +265,11 @@ const handleStartTimeChange = (val) => {
     const start = new Date(val)
     const end = formData.value.endTime ? new Date(formData.value.endTime) : null
 
-    if (!end || end <= start) {
+    // 赋值
+    formData.value.startTime = formatDateTime(start)
+
+    // 如果有结束时间且结束时间 <= 开始时间，自动调整结束时间
+    if (end && end <= start) {
       const autoEnd = new Date(start.getTime() + 60 * 60 * 1000)
       formData.value.endTime = formatDateTime(autoEnd)
       ElMessage.info('结束时间已自动调整为开始时间后1小时')
@@ -276,6 +282,10 @@ const handleEndTimeChangeForPeriod = (val) => {
     const end = new Date(val)
     const start = formData.value.startTime ? new Date(formData.value.startTime) : null
 
+    // 赋值
+    formData.value.endTime = formatDateTime(end)
+
+    // 如果有开始时间且结束时间 <= 开始时间，自动调整结束时间
     if (start && end <= start) {
       const autoEnd = new Date(start.getTime() + 60 * 60 * 1000)
       formData.value.endTime = formatDateTime(autoEnd)
@@ -385,7 +395,10 @@ const fetchNoteList = async () => {
 
 // 加载日程详情
 const fetchScheduleDetail = async () => {
-  if (!scheduleId.value) return
+  if (!scheduleId.value) {
+    isInitializing.value = false
+    return
+  }
 
   try {
     const response = await axios.get('http://localhost:8080/api/schedule/detail', {
@@ -405,9 +418,11 @@ const fetchScheduleDetail = async () => {
         formData.value.noteIds = data.noteIds
       }
 
+      // 先设置时间类型
       if (!data.startTime) {
         formData.value.timeType = 'point'
         formData.value.endTime = data.endTime
+        formData.value.startTime = ''
       } else {
         formData.value.timeType = 'period'
         formData.value.startTime = data.startTime
@@ -417,13 +432,63 @@ const fetchScheduleDetail = async () => {
   } catch (error) {
     console.error('获取日程详情失败', error)
     ElMessage.error('加载失败')
+  } finally {
+    setTimeout(() => {
+      isInitializing.value = false
+    }, 100)
   }
+}
+
+// 校验并调整重复规则的时间
+const validateAndAdjustRepeatTime = (repeatRule, time) => {
+  if (!time || repeatRule === 'none') return time
+
+  let newDate = new Date(time)
+  let adjusted = false
+
+  if (repeatRule === 'workday') {
+    while (newDate.getDay() === 0 || newDate.getDay() === 6) {
+      newDate.setDate(newDate.getDate() + 1)
+      adjusted = true
+    }
+  } else if (repeatRule === 'holiday') {
+    while (newDate.getDay() !== 0 && newDate.getDay() !== 6) {
+      newDate.setDate(newDate.getDate() + 1)
+      adjusted = true
+    }
+  }
+
+  if (adjusted) {
+    ElMessage.warning(`时间已自动调整为最近的${repeatRule === 'workday' ? '工作日' : '节假日'}：${newDate.toLocaleString()}`)
+  }
+
+  return formatDateTime(newDate)
 }
 
 // 保存日程
 const saveSchedule = async () => {
   if (!formData.value.title.trim()) {
     ElMessage.warning('请输入标题')
+    return
+  }
+
+  // 时间段模式的完整性校验（只检查，不自动调整）
+  if (formData.value.timeType === 'period') {
+    const start = formData.value.startTime ? new Date(formData.value.startTime) : null
+    const end = formData.value.endTime ? new Date(formData.value.endTime) : null
+
+    if (!start || !end) {
+      ElMessage.warning('请选择完整的时间段')
+      return
+    }
+    if (end <= start) {
+      ElMessage.warning('结束时间不能早于或等于开始时间')
+      return
+    }
+  }
+
+  if (formData.value.timeType === 'point' && !formData.value.endTime) {
+    ElMessage.warning('请选择时间')
     return
   }
 
@@ -435,20 +500,9 @@ const saveSchedule = async () => {
       repeatRule: formData.value.repeatRule,
       remark: formData.value.remark,
       tagId: formData.value.tagId,
-      noteIds: formData.value.noteIds
-    }
-
-    if (formData.value.timeType === 'point') {
-      submitData.startTime = null
-      submitData.endTime = formData.value.endTime
-    } else {
-      if (!formData.value.startTime || !formData.value.endTime) {
-        ElMessage.warning('请选择完整的时间段')
-        saving.value = false
-        return
-      }
-      submitData.startTime = formData.value.startTime
-      submitData.endTime = formData.value.endTime
+      noteIds: formData.value.noteIds,
+      startTime: formData.value.timeType === 'point' ? null : formData.value.startTime,
+      endTime: formData.value.endTime
     }
 
     const response = await axios.put('http://localhost:8080/api/schedule/update', submitData)
@@ -468,7 +522,16 @@ const saveSchedule = async () => {
   }
 }
 
-// 返回日程列表
+// 跳转到笔记详情页
+const goToNoteDetail = (noteId) => {
+  if (noteId) {
+    sessionStorage.setItem('returnToSchedule', scheduleId.value)
+    sessionStorage.setItem('fromSchedule', 'true')
+    router.push({ path: `/notes/edit/${noteId}`, query: { from: 'schedule' } })
+  }
+}
+
+// 返回日程列表页
 const goBack = () => {
   router.push('/schedules')
 }
@@ -476,25 +539,41 @@ const goBack = () => {
 const handleTagCreated = (newTag) => {
   fetchTagList()
 }
-// 监听时间类型变化
-watch(() => formData.value.timeType, (newVal) => {
-  const defaultTime = getDefaultTime()
+
+// 添加标志位，跳过初始加载时的 watch
+const isInitializing = ref(true)
+
+watch(() => formData.value.timeType, (newVal, oldVal) => {
+  if (isInitializing.value) return
+  if (oldVal === newVal) return
 
   if (newVal === 'point') {
+    // 切换到时间点：清空开始时间，保留结束时间
     formData.value.startTime = ''
-    formData.value.endTime = defaultTime
   } else {
-    const defaultStart = new Date()
-    const defaultEnd = new Date(defaultStart.getTime() + 60 * 60 * 1000)
-    formData.value.startTime = formatDateTime(defaultStart)
-    formData.value.endTime = formatDateTime(defaultEnd)
-    ElMessage.info('已自动将结束时间设置为开始后一小时')
+    // 切换到时间段
+    // 如果有结束时间但没有开始时间，自动生成开始时间
+    if (formData.value.endTime && !formData.value.startTime) {
+      const endDate = new Date(formData.value.endTime)
+      const autoStart = new Date(endDate.getTime() - 60 * 60 * 1000)
+      formData.value.startTime = formatDateTime(autoStart)
+    }
+    // 如果完全没有时间，才设置默认值
+    else if (!formData.value.startTime && !formData.value.endTime) {
+      const defaultStart = new Date()
+      const defaultEnd = new Date(defaultStart.getTime() + 60 * 60 * 1000)
+      formData.value.startTime = formatDateTime(defaultStart)
+      formData.value.endTime = formatDateTime(defaultEnd)
+    }
+    // 已有完整时间，保持不变
   }
 })
-onMounted(() => {
-  fetchTagList()
-  fetchNoteList()
-  fetchScheduleDetail()
+
+onMounted(async () => {
+  isInitializing.value = true  // 开始初始化
+  await fetchTagList()
+  await fetchNoteList()
+  await fetchScheduleDetail()
 })
 </script>
 
@@ -640,19 +719,36 @@ onMounted(() => {
   font-size: 13px;
 }
 
-.btn-cancel {
-  padding: 4px 12px;
-  background: var(--bg-hover);
-  color: var(--text-secondary);
-  border: none;
+.btn-cancel, .btn-confirm {
+  padding: 6px 16px;
   border-radius: 8px;
   cursor: pointer;
   font-size: 13px;
   transition: 0.2s;
+  border: none;
+}
+
+.btn-cancel {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
 }
 
 .btn-cancel:hover {
   background: var(--border-color);
+}
+
+.btn-confirm {
+  background: #fbbf24;
+  color: #1a1a1a;
+}
+
+.btn-confirm:hover {
+  background: #f59e0b;
+}
+
+.btn-confirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* 笔记本风格的表单 */
@@ -765,5 +861,33 @@ onMounted(() => {
   color: var(--text-secondary);
   min-width: 50px;
   padding-top: 4px;
+}
+
+.date-column {
+  width: 200px;
+  padding-right: 24px;
+  border-right: 1px solid var(--card-border);
+}
+
+.date-display {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.date-month, .date-year, .date-weekday, .date-number {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.note-tag.clickable {
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.note-tag.clickable:hover {
+  transform: scale(1.02);
+  opacity: 0.8;
 }
 </style>

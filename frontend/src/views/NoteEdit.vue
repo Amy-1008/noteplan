@@ -188,13 +188,29 @@ const loadNote = async () => {
   }
 }
 
+// 获取来源页面
+const fromSchedule = ref(route.query.from === 'schedule' || sessionStorage.getItem('fromSchedule') === 'true')
+const returnToScheduleId = ref(sessionStorage.getItem('returnToSchedule'))
+
+// 返回
+const goBack = () => {
+  if (fromSchedule.value && returnToScheduleId.value) {
+    // 从日程详情进入，返回日程详情页
+    sessionStorage.removeItem('fromSchedule')
+    router.push({ path: '/schedule/detail', query: { id: returnToScheduleId.value } })
+  } else {
+    // 从首页/笔记列表进入，返回首页
+    router.push('/')
+  }
+}
+
 // 保存笔记
 const saveNote = async () => {
   if (!form.content.trim()) {
     ElMessage.warning('内容不能为空')
     return
   }
-  
+
   saving.value = true
   try {
     let res
@@ -210,10 +226,10 @@ const saveNote = async () => {
         content: form.content
       })
     }
-    
+
     if (res.data.code === 200) {
       const savedNote = res.data.data
-      
+
       // 绑定标签
       if (form.tagId) {
         await axios.post('http://localhost:8080/api/tags/bind', null, {
@@ -223,24 +239,32 @@ const saveNote = async () => {
             tagId: form.tagId
           }
         })
+      } else if (isEdit.value) {
+        // 编辑模式下，如果用户清空了标签，需要删除原有标签
+        await axios.delete('http://localhost:8080/api/tags/clear', {
+          params: { targetId: savedNote.id, targetType: 'NOTE' }
+        })
       }
-      
+
       ElMessage.success(isEdit.value ? '更新成功' : '创建成功')
       store.triggerSidebarRefresh()
-      goBack()
+
+      // 根据来源决定返回哪里
+      if (fromSchedule.value && returnToScheduleId.value) {
+        sessionStorage.removeItem('fromSchedule')
+        router.push({ path: '/schedule/detail', query: { id: returnToScheduleId.value } })
+      } else {
+        router.push('/')
+      }
     } else {
       ElMessage.error(res.data.message || '操作失败')
     }
   } catch (err) {
+    console.error('保存笔记失败', err)
     ElMessage.error('保存失败，请重试')
   } finally {
     saving.value = false
   }
-}
-
-// 返回首页
-const goBack = () => {
-  router.push('/')
 }
 
 const handleTagCreated = (newTag) => {
