@@ -81,7 +81,8 @@ import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import axios from 'axios'
-
+import {useNoteStore} from "@/store/note.js";
+const store = useNoteStore()
 const props = defineProps({
   modelValue: {
     type: Number,
@@ -170,6 +171,7 @@ const confirmCreate = async () => {
       createDialogVisible.value = false
       resetCreateForm()
       ElMessage.success('创建成功')
+      store.triggerSidebarRefresh()
       emit('tag-created', newTag)
     } else {
       ElMessage.error(response.data.message || '创建失败')

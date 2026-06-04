@@ -82,6 +82,7 @@ const editNote = () => {
 }
 
 // 删除笔记 - ✅ 重命名为 handleDeleteNote
+const emit = defineEmits(['deleted'])
 const handleDeleteNote = async () => {
   if (!confirm('确定要删除这条笔记吗？')) return
 
@@ -91,6 +92,7 @@ const handleDeleteNote = async () => {
       ElMessage.success('删除成功')
       await store.fetchNotes()
       collapse()
+      emit('deleted')
     } else {
       ElMessage.error(res.data.message || '删除失败')
     }

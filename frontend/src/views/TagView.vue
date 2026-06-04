@@ -92,6 +92,7 @@
         <h3 class="modal-title">确认删除</h3>
         <p class="modal-message">
           确定要删除标签 <strong>{{ deleteTarget?.name }}</strong> 吗？
+          <span v-if="hasLinkedContent" class="warning-text">该标签有关联内容，删除后关联将自动解除。</span>
         </p>
         <div class="modal-actions">
           <button class="modal-btn cancel" @click="closeDeleteModal">取消</button>
@@ -103,8 +104,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue'
+import {ref, computed, onMounted, nextTick, watch} from 'vue'
 import axios from 'axios'
+import { useNoteStore } from "@/store/note.js";
 
 const API_BASE = 'http://localhost:8080/api'
 
@@ -118,8 +120,10 @@ const isAdding = ref(false)
 const newTagName = ref('')
 const showDeleteModal = ref(false)
 const deleteTarget = ref(null)
+const hasLinkedContent = ref(false) // 是否有关联内容
 const addInput = ref(null)
 const editInput = ref(null)
+const store = useNoteStore()
 
 const paginatedTags = computed(() => {
   const sorted = [...tagList.value].sort((a, b) => b.rank - a.rank)
@@ -128,6 +132,41 @@ const paginatedTags = computed(() => {
 })
 
 const totalPages = computed(() => Math.ceil(tagList.value.length / pageSize))
+
+watch(
+    () => store.sidebarRefreshTrigger,
+    () => {
+      fetchTags()
+    }
+)
+// 检查标签名是否重复
+const isDuplicateName = (name, excludeId = null) => {
+  return tagList.value.some(tag =>
+      tag.name === name && (excludeId === null || tag.id !== excludeId)
+  )
+}
+
+// 检查标签是否有关联内容（笔记或日程）
+const checkTagHasLinkedContent = async (tagId) => {
+  try {
+    // 检查是否关联了笔记
+    const noteResponse = await axios.get(`${API_BASE}/tags/filter`, {
+      params: { tagId: tagId, targetType: 'NOTE' }
+    })
+    const noteIds = noteResponse.data.data || []
+
+    // 检查是否关联了日程
+    const scheduleResponse = await axios.get(`${API_BASE}/tags/filter`, {
+      params: { tagId: tagId, targetType: 'SCHEDULE' }
+    })
+    const scheduleIds = scheduleResponse.data.data || []
+
+    return noteIds.length > 0 || scheduleIds.length > 0
+  } catch (error) {
+    console.error('检查标签关联内容失败:', error)
+    return false
+  }
+}
 
 const fetchTags = async () => {
   loading.value = true
@@ -151,7 +190,12 @@ const toggleRank = async (tag) => {
       rank: newRank
     })
     if (response.data.code === 200) {
+      // 更新本地数据
       tag.rank = newRank
+      // 重新排序
+      tagList.value = [...tagList.value].sort((a, b) => b.rank - a.rank)
+      // 触发侧边栏刷新
+      store.triggerSidebarRefresh()
     }
   } catch (error) {
     console.error('切换置顶状态失败:', error)
@@ -166,7 +210,17 @@ const startEdit = (tag) => {
 
 const confirmEdit = async (id) => {
   const trimmedName = editName.value.trim()
-  if (!trimmedName) return
+  if (!trimmedName) {
+    alert('标签名不能为空')
+    return
+  }
+
+  // 检查是否重名（排除当前编辑的标签）
+  if (isDuplicateName(trimmedName, id)) {
+    alert('已有此标签')
+    return
+  }
+
   const targetTag = tagList.value.find(t => t.id === id)
   try {
     const response = await axios.put(`${API_BASE}/tags/${id}`, {
@@ -174,11 +228,15 @@ const confirmEdit = async (id) => {
       rank: targetTag.rank
     })
     if (response.data.code === 200) {
+      store.triggerSidebarRefresh()
       targetTag.name = trimmedName
       cancelEdit()
+    } else {
+      alert(response.data.message || '更新失败')
     }
   } catch (error) {
     console.error('更新标签失败:', error)
+    alert(error.response?.data?.message || '更新标签失败')
   }
 }
 
@@ -187,7 +245,9 @@ const cancelEdit = () => {
   editName.value = ''
 }
 
-const confirmDelete = (tag) => {
+const confirmDelete = async (tag) => {
+  // 先检查是否有关联内容
+  hasLinkedContent.value = await checkTagHasLinkedContent(tag.id)
   deleteTarget.value = tag
   showDeleteModal.value = true
 }
@@ -195,6 +255,7 @@ const confirmDelete = (tag) => {
 const closeDeleteModal = () => {
   showDeleteModal.value = false
   deleteTarget.value = null
+  hasLinkedContent.value = false
 }
 
 const deleteTag = async () => {
@@ -203,10 +264,15 @@ const deleteTag = async () => {
     const response = await axios.delete(`${API_BASE}/tags/${deleteTarget.value.id}`)
     if (response.data.code === 200) {
       tagList.value = tagList.value.filter(t => t.id !== deleteTarget.value.id)
+      store.triggerSidebarRefresh()
+      closeDeleteModal()
+    } else {
+      alert(response.data.message || '删除失败')
       closeDeleteModal()
     }
   } catch (error) {
     console.error('删除标签失败:', error)
+    alert(error.response?.data?.message || '删除标签失败')
     closeDeleteModal()
   }
 }
@@ -220,19 +286,33 @@ const addNewTag = () => {
 
 const confirmAdd = async () => {
   const trimmedName = newTagName.value.trim()
-  if (!trimmedName) return
+  if (!trimmedName) {
+    alert('标签名不能为空')
+    return
+  }
+
+  // 检查是否重名
+  if (isDuplicateName(trimmedName)) {
+    alert('已有此标签')
+    return
+  }
+
   try {
     const response = await axios.post(`${API_BASE}/tags`, {
       name: trimmedName,
       rank: 0
     })
     if (response.data.code === 200) {
+      store.triggerSidebarRefresh()
       tagList.value.push(response.data.data)
       currentPage.value = totalPages.value
       cancelAdd()
+    } else {
+      alert(response.data.message || '创建失败')
     }
   } catch (error) {
     console.error('创建标签失败:', error)
+    alert(error.response?.data?.message || '创建标签失败')
   }
 }
 
@@ -443,6 +523,18 @@ onMounted(() => fetchTags())
   margin: 0 0 12px 0;
   font-size: 18px;
   font-weight: 600;
+}
+
+.modal-message {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.warning-text {
+  display: block;
+  font-size: 12px;
+  color: #ef4444;
+  margin-top: 8px;
 }
 
 .modal-actions {

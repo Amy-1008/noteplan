@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import {computed, ref, onMounted, onUnmounted, watch} from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useNoteStore } from '@/store/note'
 import axios from 'axios'
@@ -8,7 +8,19 @@ const store = useNoteStore()
 const router = useRouter()
 const route = useRoute()
 const allTags = ref([])
-let refreshTimer = null
+
+//刷新函数
+const refreshAllData = async () => {
+  await fetchAllTags()
+  await store.fetchNotes?.()
+  await store.fetchScheduleList?.()
+}
+watch(
+    () => store.sidebarRefreshTrigger,
+    () => {
+      refreshAllData()
+    }
+)
 
 // 获取所有标签
 const fetchAllTags = async () => {
@@ -35,6 +47,7 @@ const toggleTagRank = async (tag) => {
     })
     if (response.data.code === 200) {
       tag.rank = newRank
+      store.triggerSidebarRefresh()
       allTags.value = [...allTags.value].sort((a, b) => b.rank - a.rank)
       const storeTag = store.tags.find(t => t.id === tag.id)
       if (storeTag) {
@@ -114,22 +127,8 @@ const getTagColor = (tag) => {
   return colors[tag] || '#9ca3af'
 }
 
-const startRefreshTimer = () => {
-  refreshTimer = setInterval(() => {
-    fetchAllTags()
-  }, 2000)
-}
-
 onMounted(() => {
   fetchAllTags()
-  startRefreshTimer()
-})
-
-onUnmounted(() => {
-  if (refreshTimer) {
-    clearInterval(refreshTimer)
-    refreshTimer = null
-  }
 })
 </script>
 

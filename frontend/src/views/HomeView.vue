@@ -12,8 +12,8 @@ const notesWithTags = ref([])
 
 // 页面标题
 const pageTitle = computed(() => {
-  if (store.activeTag === '全部') return 'All Entries'
-  return `${store.activeTag} Entries`
+  if (store.activeTag === '全部') return 'All'
+  return `${store.activeTag}`
 })
 
 // 异步获取标签
@@ -78,7 +78,9 @@ const groupedNotes = computed(() => {
 
 const formatDate = d =>
     new Date(d).toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })
-
+const refreshNotes = async () => {
+  await loadTagsForNotes(store.notes)
+}
 onMounted(async () => {
   await store.fetchNotes()
   await store.fetchTags()
@@ -108,7 +110,7 @@ onMounted(async () => {
       <div v-for="(group, date) in groupedNotes" :key="date" class="date-group">
         <div class="date-label">{{ formatDate(date) }}</div>
         <div class="card-grid">
-          <EntryCard v-for="n in group" :key="n.id" :note="n" />
+          <EntryCard v-for="n in group" :key="n.id" :note="n" @deleted="refreshNotes"/>
         </div>
       </div>
     </div>
