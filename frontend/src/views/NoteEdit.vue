@@ -29,19 +29,19 @@
         <div class="content-column">
           <div class="content-header">
             <input
-                v-model="form.title"
-                type="text"
-                class="title-input"
-                placeholder="标题"
+              v-model="form.title"
+              type="text"
+              class="title-input"
+              placeholder="标题"
             />
           </div>
 
           <div class="content-body">
             <textarea
-                v-model="form.content"
-                class="content-textarea"
-                placeholder="开始写点什么..."
-                rows="20"
+              v-model="form.content"
+              class="content-textarea"
+              placeholder="开始写点什么..."
+              rows="20"
             ></textarea>
           </div>
 
@@ -64,7 +64,8 @@ import { ElMessage } from 'element-plus'
 import { addNote, updateNote, getNoteById } from '@/api/note'
 import TagSelector from '@/components/TagSelector.vue'
 import axios from 'axios'
-
+import {useNoteStore} from "@/store/note.js";
+const store = useNoteStore()
 const router = useRouter()
 const route = useRoute()
 const saving = ref(false)
@@ -104,7 +105,7 @@ const fetchTags = async () => {
 // 加载笔记数据（编辑模式）
 const loadNote = async () => {
   if (!isEdit.value) return
-
+  
   try {
     const res = await getNoteById(noteId.value)
     if (res.data.code === 200) {
@@ -112,7 +113,7 @@ const loadNote = async () => {
       form.id = note.id
       form.title = note.title || ''
       form.content = note.content || ''
-
+      
       // 加载标签
       const tagRes = await axios.get('http://localhost:8080/api/tags/target', {
         params: { targetId: note.id, targetType: 'NOTE' }
@@ -136,7 +137,7 @@ const saveNote = async () => {
     ElMessage.warning('内容不能为空')
     return
   }
-
+  
   saving.value = true
   try {
     let res
@@ -152,10 +153,10 @@ const saveNote = async () => {
         content: form.content
       })
     }
-
+    
     if (res.data.code === 200) {
       const savedNote = res.data.data
-
+      
       // 绑定标签
       if (form.tagId) {
         await axios.post('http://localhost:8080/api/tags/bind', null, {
@@ -166,8 +167,9 @@ const saveNote = async () => {
           }
         })
       }
-
+      
       ElMessage.success(isEdit.value ? '更新成功' : '创建成功')
+      store.triggerSidebarRefresh()
       goBack()
     } else {
       ElMessage.error(res.data.message || '操作失败')

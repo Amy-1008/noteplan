@@ -1,7 +1,7 @@
 <template>
   <div class="schedule-container">
     <!-- 左侧：标签侧边栏组件 -->
-    <TagSidebar v-model="currentTag" @change="onTagChange" />
+<!--    <TagSidebar v-model="currentTag" @change="onTagChange" />-->
 
     <!-- 右侧主内容区 -->
     <div class="schedule-main">
@@ -285,6 +285,7 @@ import axios from 'axios'
 import TagSidebar from "@/components/TagSidebar.vue"
 import TagSelector from "@/components/TagSelector.vue";
 import { useRouter } from 'vue-router'
+import {useNoteStore} from "@/store/note.js";
 
 // ---------- 数据 ----------
 const scheduleList = ref([])
@@ -295,7 +296,7 @@ const formRef = ref(null)
 const router = useRouter()
 const saving = ref(false)
 const isAdding = ref(false)
-
+const store = useNoteStore()
 // 当前日期
 const currentDate = new Date().toLocaleDateString('zh-CN', {
   year: 'numeric',
@@ -547,6 +548,7 @@ const toggleComplete = async (schedule, event) => {
     })
     if (response.data.code === 200) {
       await fetchScheduleList()
+      store.triggerSidebarRefresh()
       ElMessage.success(newCompleted ? '已完成' : '已取消完成')
     } else {
       throw new Error(response.data.message)
@@ -567,9 +569,9 @@ const handlePageChange = (group, page) => {
   if (page < 1) return
   const maxPage = Math.ceil(
       group === 'expired' ? expiredList.value.length / pageSizeMap.value.expired :
-          group === 'nextWeek' ? nextWeekList.value.length / pageSizeMap.value.nextWeek :
-              group === 'other' ? otherList.value.length / pageSizeMap.value.other :
-                  completedList.value.length / pageSizeMap.value.completed
+      group === 'nextWeek' ? nextWeekList.value.length / pageSizeMap.value.nextWeek :
+      group === 'other' ? otherList.value.length / pageSizeMap.value.other :
+      completedList.value.length / pageSizeMap.value.completed
   )
   if (page > maxPage) return
   currentPageMap.value[group] = page
@@ -672,13 +674,13 @@ const resetForm = () => {
 
 const submitSchedule = async () => {
   console.log('✅ 按钮被点击了！')
-
+  
   // 检查 formRef 是否存在
   console.log('formRef:', formRef.value)
-
+  
   // 直接打印表单数据
   console.log('表单数据:', formData.value)
-
+  
   // 构造提交数据
   const submitData = {
     title: formData.value.title,
@@ -704,6 +706,7 @@ const submitSchedule = async () => {
     console.log('服务器响应:', response.data)
     if (response.data.code === 200) {
       ElMessage.success('添加成功')
+      store.triggerSidebarRefresh()
       isAdding.value = false
       resetForm()
       fetchScheduleList()
@@ -822,6 +825,7 @@ const batchDelete = async () => {
     })
 
     if (response.data.code === 200) {
+      store.triggerSidebarRefresh()
       ElMessage.success(`成功删除 ${selectedIds.value.length} 个日程`)
       deleteMode.value = false
       selectedIds.value = []

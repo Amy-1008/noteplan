@@ -77,12 +77,12 @@
             </el-form-item>
             <el-form-item label="内容" prop="content">
               <el-input
-                  v-model="noteForm.content"
-                  type="textarea"
-                  :rows="12"
-                  placeholder="请输入笔记内容"
-                  maxlength="5000"
-                  show-word-limit
+                v-model="noteForm.content"
+                type="textarea"
+                :rows="12"
+                placeholder="请输入笔记内容"
+                maxlength="5000"
+                show-word-limit
               />
             </el-form-item>
             <el-form-item label="标签">
@@ -135,7 +135,8 @@ import { ElMessage } from 'element-plus'
 import { getNoteList, deleteNote, addNote, updateNote } from '@/api/note'
 import TagSelector from '@/components/TagSelector.vue'
 import axios from 'axios'
-
+import {useNoteStore} from "@/store/note.js";
+const store = useNoteStore()
 // 查询参数
 const queryParams = reactive({
   title: '',
@@ -318,6 +319,7 @@ const saveNote = async () => {
         ElMessage.success(dialogType.value === 'create' ? '新建成功' : '更新成功')
         dialogVisible.value = false
         fetchNotes()
+        store.triggerSidebarRefresh()
       } else {
         ElMessage.error(res.data.message || '操作失败')
       }
@@ -348,6 +350,7 @@ const handleDelete = async (row) => {
         currentPage.value -= 1
       }
       fetchNotes()
+      store.triggerSidebarRefresh()
     } else {
       ElMessage.error(res.data.message || '删除失败')
     }

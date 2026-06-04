@@ -17,22 +17,22 @@ const pageTitle = computed(() => {
 // 异步获取标签
 const normalizeNote = async (n) => {
   let tagName = '未分类'
-
+  
   try {
     const tagRes = await axios.get('http://localhost:8080/api/tags/target', {
-      params: {
-        targetId: n.id,
-        targetType: 'NOTE'
+      params: { 
+        targetId: n.id, 
+        targetType: 'NOTE' 
       }
     })
-
+    
     if (tagRes.data.code === 200 && tagRes.data.data) {
       tagName = tagRes.data.data.name
     }
   } catch (e) {
     console.error(`获取笔记 ${n.id} 标签失败`, e)
   }
-
+  
   return { ...n, tagName }
 }
 
@@ -42,7 +42,7 @@ const loadTagsForNotes = async (notes) => {
     notesWithTags.value = []
     return
   }
-
+  
   const promises = notes.map(async (n) => {
     return await normalizeNote(n)
   })
@@ -57,8 +57,8 @@ const filteredNotes = computed(() => {
   }
   if (keyword.value.trim()) {
     list = list.filter(n =>
-        (n.title || '').includes(keyword.value) ||
-        (n.content || '').includes(keyword.value)
+      (n.title || '').includes(keyword.value) ||
+      (n.content || '').includes(keyword.value)
     )
   }
   return list
@@ -77,10 +77,10 @@ const groupedNotes = computed(() => {
 })
 
 const formatDate = d =>
-    new Date(d).toLocaleDateString('zh-CN', {
-      month: 'long',
-      day: 'numeric'
-    })
+  new Date(d).toLocaleDateString('zh-CN', {
+    month: 'long',
+    day: 'numeric'
+  })
 
 onMounted(async () => {
   await store.fetchNotes()

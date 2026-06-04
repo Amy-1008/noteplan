@@ -26,10 +26,10 @@
     <div v-else class="card-expanded">
       <div class="expanded-header">
         <button class="collapse-btn" @click="collapse">← 收起</button>
-        <div class="expanded-actions">
-          <button class="action-btn edit" @click="editNote">编辑</button>
-          <button class="action-btn delete" @click="handleDeleteNote">删除</button>
-        </div>
+       <div class="expanded-actions">
+  <button class="action-btn edit" @click="editNote">编辑</button>
+  <button class="action-btn delete" @click="handleDeleteNote">删除</button>
+</div>
       </div>
 
       <div class="expanded-body">
@@ -77,12 +77,13 @@ const editNote = () => {
 // 删除笔记 - ✅ 重命名为 handleDeleteNote
 const handleDeleteNote = async () => {
   if (!confirm('确定要删除这条笔记吗？')) return
-
+  
   try {
     const res = await deleteNoteApi(props.note.id)
     if (res.data.code === 200) {
       ElMessage.success('删除成功')
       await store.fetchNotes()
+      store.triggerSidebarRefresh()
       collapse()
     } else {
       ElMessage.error(res.data.message || '删除失败')

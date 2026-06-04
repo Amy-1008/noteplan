@@ -10,7 +10,8 @@ export const useNoteStore = defineStore('note', {
         notes: [],
         tags: [],
         activeTag: '全部',
-        activeNote: null   // ✅ 新增
+        activeNote: null,
+        sidebarRefreshTrigger: 0
     }),
 
     getters: {
@@ -61,7 +62,9 @@ export const useNoteStore = defineStore('note', {
         setActiveNote(note) {   // ✅ 新增
             this.activeNote = note
         },
-
+        triggerSidebarRefresh() {
+            this.sidebarRefreshTrigger++
+        },
         async createNote() {
             try {
                 const res = await api.post('/api/note/add', {})

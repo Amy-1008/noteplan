@@ -200,6 +200,7 @@ import { ArrowLeft, Plus, Document, Search } from '@element-plus/icons-vue'
 import axios from 'axios'
 import TagSelector from "@/components/TagSelector.vue";
 import { onBeforeRouteLeave } from 'vue-router'
+import {useNoteStore} from "@/store/note.js";
 
 const route = useRoute()
 const router = useRouter()
@@ -260,7 +261,7 @@ const noteDialogVisible = ref(false)
 const tempSelectedNoteIds = ref([])
 const viewNoteDialogVisible = ref(false)
 const currentViewNote = ref(null)
-
+const store = useNoteStore()
 // 过滤后的笔记列表
 const filteredNoteList = computed(() => {
   let result = [...allNotes.value]
@@ -487,6 +488,7 @@ const saveSchedule = async () => {
 
         if (response.data.code === 200) {
           ElMessage.success('保存成功')
+          store.triggerSidebarRefresh()
           router.push('/schedules')
         } else {
           ElMessage.error(response.data.message || '保存失败')

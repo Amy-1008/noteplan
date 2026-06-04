@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, onMounted } from 'vue'
+import {computed, ref, onMounted, watch} from 'vue'
 import { useRouter } from 'vue-router'
 import { useNoteStore } from '@/store/note'
 import axios from 'axios'
@@ -75,10 +75,6 @@ const selectTag = (tag) => {
   }
 }
 
-const goToTagsPage = () => {
-  router.push('/tags')
-}
-
 const totalEntries = computed(() => notesWithTags.value.length)
 const totalWords = computed(() => {
   return notesWithTags.value.reduce((sum, n) => sum + (n.content?.length || 0), 0)
@@ -104,7 +100,14 @@ const getTagColor = (tag) => {
   }
   return colors[tag] || '#9ca3af'
 }
-
+watch(() => store.sidebarRefreshTrigger, async () => {
+  await refreshSidebar()
+})
+const refreshSidebar = async () => {
+  await store.fetchNotes()  // 重新获取笔记
+  await loadTagsForNotes(store.notes)  // 重新加载标签
+  await fetchTodaySchedules()  // 重新获取今日日程
+}
 onMounted(async () => {
   if (!store.notes.length) await store.fetchNotes()
   await loadTagsForNotes(store.notes)
@@ -143,7 +146,7 @@ onMounted(async () => {
     <div class="tags-section">
       <div class="tags-header">
         <span>Tags</span>
-        <button class="add-tag-btn" @click="goToTagsPage">+</button>
+        <button class="add-tag-btn">+</button>
       </div>
 
       <div class="tag-item" :class="{ active: store.activeTag === '全部' }" @click="selectTag('全部')">

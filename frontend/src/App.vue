@@ -1,21 +1,16 @@
 <script setup>
-import { RouterView, useRouter } from 'vue-router'
+import { RouterView } from 'vue-router'
 import { onMounted } from 'vue'
 import '@/styles/theme.css'
 import Sidebar from '@/components/Sidebar.vue'
 import { useNoteStore } from '@/store/note'
 
 const store = useNoteStore()
-const router = useRouter()
 
 onMounted(async () => {
   await store.fetchNotes()
   await store.fetchTags()
 })
-
-const goToNotePage = () => {
-  router.push('/notes/edit')
-}
 </script>
 
 <template>
@@ -48,7 +43,7 @@ const goToNotePage = () => {
     </main>
 
     <!-- 全局 FAB 按钮 -->
-    <div class="fab" @click="goToNotePage">＋</div>
+    <div class="fab" @click="store.createNote()">＋</div>
   </div>
 </template>
 
