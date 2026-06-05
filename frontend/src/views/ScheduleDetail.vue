@@ -166,6 +166,8 @@ const formRef = ref(null)
 const scheduleId = ref(route.query.id)
 const isEdit = computed(() => !!scheduleId.value)
 
+const isInitializing = ref(true)
+
 // 当前日期
 const now = new Date()
 
@@ -182,13 +184,7 @@ const formData = ref({
   noteIds: []
 })
 
-// 时间辅助函数
-const getOneHourLater = () => {
-  const date = new Date()
-  date.setHours(date.getHours() + 1)
-  return date
-}
-
+// 时间辅助函数，格式化日期时间
 const formatDateTime = (date) => {
   if (!date) return ''
   const d = new Date(date)
@@ -201,18 +197,21 @@ const formatDateTime = (date) => {
   return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`
 }
 
+// 时间点模式
 const handleEndTimeChange = (val) => {
   if (val && formData.value.timeType === 'point') {
     formData.value.endTime = formatDateTime(new Date(val))
   }
 }
 
+// 时间段模式，开始时间变化时，自动补全结束时间
 const handleStartTimeChange = (val) => {
   if (val && formData.value.timeType === 'period') {
     const start = new Date(val)
     let end = formData.value.endTime ? new Date(formData.value.endTime) : null
 
     if (!end) {
+      // 没有结束时间：自动设为开始时间+1小时
       const autoEnd = new Date(start.getTime() + 60 * 60 * 1000)
       formData.value.endTime = formatDateTime(autoEnd)
       formData.value.startTime = formatDateTime(start)
@@ -222,6 +221,7 @@ const handleStartTimeChange = (val) => {
 
     formData.value.startTime = formatDateTime(start)
 
+    // 结束时间不能早于开始时间
     if (end <= start) {
       const autoEnd = new Date(start.getTime() + 60 * 60 * 1000)
       formData.value.endTime = formatDateTime(autoEnd)
@@ -230,12 +230,14 @@ const handleStartTimeChange = (val) => {
   }
 }
 
+// 时间段模式，结束时间变化时，自动补全开始时间
 const handleEndTimeChangeForPeriod = (val) => {
   if (val && formData.value.timeType === 'period') {
     const end = new Date(val)
     let start = formData.value.startTime ? new Date(formData.value.startTime) : null
 
     if (!start) {
+      // 没有开始时间：自动设为结束时间-1小时
       const autoStart = new Date(end.getTime() - 60 * 60 * 1000)
       formData.value.startTime = formatDateTime(autoStart)
       formData.value.endTime = formatDateTime(end)
@@ -245,6 +247,7 @@ const handleEndTimeChangeForPeriod = (val) => {
 
     formData.value.endTime = formatDateTime(end)
 
+    // 结束时间不能早于开始时间
     if (end <= start) {
       const autoStart = new Date(end.getTime() - 60 * 60 * 1000)
       formData.value.startTime = formatDateTime(autoStart)
@@ -252,6 +255,7 @@ const handleEndTimeChangeForPeriod = (val) => {
     }
   }
 }
+
 // 笔记选择器相关
 const selectedNotes = ref([])
 const noteSearchKeyword = ref('')
@@ -263,6 +267,7 @@ const currentViewNote = ref(null)
 const tagList = ref([])
 const noteList = ref([])
 
+// 过滤后的笔记列表
 const filteredNoteList = computed(() => {
   let result = [...noteList.value]
 
@@ -280,45 +285,64 @@ const filteredNoteList = computed(() => {
   return result
 })
 
+// 切换笔记选中状态
 const toggleNoteSelection = (noteId) => {
   const index = tempSelectedNoteIds.value.indexOf(noteId)
   if (index > -1) {
     tempSelectedNoteIds.value.splice(index, 1)
   } else {
+    // 最多5篇
+    if (tempSelectedNoteIds.value.length >= 5) {
+      ElMessage.warning('每个日程最多只能关联5篇笔记');
+      return;
+    }
     tempSelectedNoteIds.value.push(noteId)
   }
 }
 
+// 打开笔记选择器弹窗
 const openNoteSelector = () => {
   tempSelectedNoteIds.value = [...formData.value.noteIds]
   noteSearchKeyword.value = ''
   noteFilterTagId.value = null
+  // 提示当前已选数量
+  if (tempSelectedNoteIds.value.length >= 5) {
+    ElMessage.info(`当前已选择 ${tempSelectedNoteIds.value.length} 篇笔记，最多可选5篇`);
+  }
   noteDialogVisible.value = true
 }
 
+// 确认笔记
 const confirmNoteSelection = () => {
+  if (tempSelectedNoteIds.value.length > 5) {
+    ElMessage.warning('每个日程最多只能关联5篇笔记');
+    return;
+  }
   selectedNotes.value = noteList.value.filter(n => tempSelectedNoteIds.value.includes(n.id))
   formData.value.noteIds = tempSelectedNoteIds.value
   noteDialogVisible.value = false
 }
 
+// 移除已关联的笔记
 const removeNote = (noteId) => {
   selectedNotes.value = selectedNotes.value.filter(n => n.id !== noteId)
   formData.value.noteIds = selectedNotes.value.map(n => n.id)
 }
 
+// 查看笔记详情
 const viewNoteDetail = (note) => {
   currentViewNote.value = note
   viewNoteDialogVisible.value = true
 }
 
+// 格式化日期
 const formatDate = (dateStr) => {
   if (!dateStr) return ''
   const d = new Date(dateStr)
   return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`
 }
 
-// API
+// 获取所有标签
 const fetchTagList = async () => {
   try {
     const response = await axios.get('http://localhost:8080/api/tags')
@@ -330,6 +354,7 @@ const fetchTagList = async () => {
   }
 }
 
+// 获取所有笔记
 const fetchNoteList = async () => {
   try {
     const response = await axios.get('http://localhost:8080/api/note/list')
@@ -405,11 +430,13 @@ const validateAndAdjustRepeatTime = (repeatRule, time) => {
   let adjusted = false
 
   if (repeatRule === 'workday') {
+    // 工作日，如果是周六/周日，自动跳到周一
     while (newDate.getDay() === 0 || newDate.getDay() === 6) {
       newDate.setDate(newDate.getDate() + 1)
       adjusted = true
     }
   } else if (repeatRule === 'holiday') {
+    // 节假日，如果是工作日，自动跳到周六
     while (newDate.getDay() !== 0 && newDate.getDay() !== 6) {
       newDate.setDate(newDate.getDate() + 1)
       adjusted = true
@@ -453,12 +480,14 @@ const saveSchedule = async () => {
       }
     }
 
+    // 时间点模式校验
     if (formData.value.timeType === 'point' && !endTime) {
       ElMessage.warning('请选择时间')
       saving.value = false
       return
     }
 
+    // 工作日/节假日时间调整
     if (formData.value.timeType === 'point' && endTime) {
       endTime = validateAndAdjustRepeatTime(repeatRule, endTime)
     } else if (formData.value.timeType === 'period') {
@@ -513,24 +542,20 @@ const handleTagCreated = (newTag) => {
 }
 
 // 添加标志位
-const isInitializing = ref(true)
-
 watch(() => formData.value.timeType, (newVal, oldVal) => {
   if (isInitializing.value) return
   if (oldVal === newVal) return
 
   if (newVal === 'point') {
-    // 切换到时间点：清空开始时间，保留结束时间
+    // 切换到时间点模式，清空开始时间
     formData.value.startTime = ''
   } else {
-    // 切换到时间段
-    // 如果有结束时间但没有开始时间，自动生成开始时间
+    // 切换到时间段模式，自动补全时间
     if (formData.value.endTime && !formData.value.startTime) {
       const endDate = new Date(formData.value.endTime)
       const autoStart = new Date(endDate.getTime() - 60 * 60 * 1000)
       formData.value.startTime = formatDateTime(autoStart)
     }
-    // 如果完全没有时间，才设置默认值
     else if (!formData.value.startTime && !formData.value.endTime) {
       const defaultStart = new Date()
       const defaultEnd = new Date(defaultStart.getTime() + 60 * 60 * 1000)

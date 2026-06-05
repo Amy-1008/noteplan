@@ -14,8 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class ScheduleService {
@@ -29,13 +29,21 @@ public class ScheduleService {
     @Autowired
     private NoteTagMapper noteTagMapper;
 
-    public List<Schedule> getAllSchedules() {
-        List<Schedule> schedules = scheduleMapper.findAll();
-        // 填充 tagId
+    //批量填充日程的标签ID
+    private void fillTagIds(List<Schedule> schedules) {
+        if (schedules == null || schedules.isEmpty()) {
+            return;
+        }
+
         for (Schedule schedule : schedules) {
             Long tagId = noteTagMapper.selectTagIdByTarget(schedule.getId(), "SCHEDULE");
             schedule.setTagId(tagId);
         }
+    }
+
+    public List<Schedule> getAllSchedules() {
+        List<Schedule> schedules = scheduleMapper.findAll();
+        fillTagIds(schedules);
         return schedules;
     }
 
@@ -45,16 +53,15 @@ public class ScheduleService {
             return Collections.emptyList();
         }
         List<Schedule> schedules = scheduleMapper.findByIds(ids);
-        // 填充 tagId
-        for (Schedule schedule : schedules) {
-            Long tagId = noteTagMapper.selectTagIdByTarget(schedule.getId(), "SCHEDULE");
-            schedule.setTagId(tagId);
-        }
+        fillTagIds(schedules);
         return schedules;
     }
 
     @Transactional
     public void addSchedule(ScheduleAddDTO dto) {
+        // 时间合法性校验
+        validateScheduleTime(dto.getStartTime(), dto.getEndTime());
+
         // 插入日程
         Schedule schedule = new Schedule();
         schedule.setTitle(dto.getTitle());
@@ -69,7 +76,7 @@ public class ScheduleService {
         scheduleMapper.insert(schedule);
         Long scheduleId = schedule.getId();
 
-        // 关联标签（单选，直接处理单个 tagId）
+        // 关联标签
         if (dto.getTagId() != null) {
             NoteTag noteTag = new NoteTag();
             noteTag.setTargetId(scheduleId);
@@ -78,7 +85,7 @@ public class ScheduleService {
             noteTagMapper.insert(noteTag);
         }
 
-        // 关联笔记（多选）
+        // 关联笔记
         if (dto.getNoteIds() != null && !dto.getNoteIds().isEmpty()) {
             for (Long noteId : dto.getNoteIds()) {
                 scheduleNoteMapper.insert(scheduleId, noteId);
@@ -86,11 +93,24 @@ public class ScheduleService {
         }
     }
 
+    //校验日程时间的合法性
+    private void validateScheduleTime(LocalDateTime startTime, LocalDateTime endTime) {
+        // 结束时间不能为空
+        if (endTime == null) {
+            throw new IllegalArgumentException("结束时间不能为空");
+        }
+
+        // 开始时间不能晚于结束时间
+        if (startTime != null && startTime.isAfter(endTime)) {
+            throw new IllegalArgumentException("开始时间不能晚于结束时间");
+        }
+    }
+
     @Transactional
     public void updateComplete(Long id, Integer completed) {
         Schedule schedule = scheduleMapper.findById(id);
         if (schedule == null) {
-            return;
+            throw new IllegalArgumentException("日程不存在");
         }
 
         // 更新 completed 状态
@@ -109,30 +129,37 @@ public class ScheduleService {
     }
 
     private LocalDateTime calculateNextTime(LocalDateTime current, String repeatRule) {
-        LocalDateTime next = current;
+        if (current == null) {
+            return null;
+        }
+
+        LocalDateTime next;
         switch (repeatRule) {
-            case "daily": next = current.plusDays(1); break;
-            case "weekly": next = current.plusWeeks(1); break;
-            case "monthly": next = current.plusMonths(1); break;
-            case "yearly": next = current.plusYears(1); break;
-            case "workday":
+            case "daily":
                 next = current.plusDays(1);
-                while (next.getDayOfWeek().getValue() >= 6) {
-                    next = next.plusDays(1);
-                }
+                break;
+            case "weekly":
+                next = current.plusWeeks(1);
+                break;
+            case "monthly":
+                next = current.plusMonths(1);
+                break;
+            case "yearly":
+                next = current.plusYears(1);
+                break;
+            case "workday":
+                next = getNextWorkday(current);
                 break;
             case "holiday":
-                next = current.plusDays(1);
-                while (next.getDayOfWeek().getValue() < 6) {
-                    next = next.plusDays(1);
-                }
+                next = getNextHoliday(current);
                 break;
-            default: return current;
+            default:
+                return current;
         }
         return next;
     }
 
-    // 获取下一个工作日（周一至周五）
+    // 获取下一个工作日
     private LocalDateTime getNextWorkday(LocalDateTime date) {
         LocalDateTime next = date.plusDays(1);
         while (next.getDayOfWeek().getValue() >= 6) { // 周六=6，周日=7
@@ -141,7 +168,7 @@ public class ScheduleService {
         return next;
     }
 
-    // 获取下一个节假日（周六或周日）
+    // 获取下一个节假日
     private LocalDateTime getNextHoliday(LocalDateTime date) {
         LocalDateTime next = date.plusDays(1);
         while (next.getDayOfWeek().getValue() < 6) { // 周一到周五
@@ -150,7 +177,8 @@ public class ScheduleService {
         return next;
     }
 
-    public Schedule getById(Long id) {
+    //根据ID获取日程
+    private Schedule getById(Long id) {
         Schedule schedule = scheduleMapper.findById(id);
         if (schedule != null) {
             Long tagId = noteTagMapper.selectTagIdByTarget(id, "SCHEDULE");
@@ -161,12 +189,16 @@ public class ScheduleService {
 
     @Transactional
     public void updateSchedule(ScheduleUpdateDTO dto) {
-        // 1. 更新日程基本信息
+        // 更新日程基本信息
         Schedule schedule = scheduleMapper.findById(dto.getId());
         if (schedule == null) {
-            throw new RuntimeException("日程不存在");
+            throw new IllegalArgumentException("日程不存在");
         }
 
+        // 时间合法性校验
+        validateScheduleTime(dto.getStartTime(), dto.getEndTime());
+
+        // 更新日程基本信息
         schedule.setTitle(dto.getTitle());
         schedule.setStartTime(dto.getStartTime());
         schedule.setEndTime(dto.getEndTime());
@@ -174,7 +206,7 @@ public class ScheduleService {
         schedule.setRemark(dto.getRemark());
         scheduleMapper.update(schedule);
 
-        // 2. 更新标签关联
+        // 更新标签关联
         noteTagMapper.deleteByTarget(dto.getId(), "SCHEDULE");
         if (dto.getTagId() != null) {
             NoteTag noteTag = new NoteTag();
@@ -184,7 +216,7 @@ public class ScheduleService {
             noteTagMapper.insert(noteTag);
         }
 
-        // 3. 更新笔记关联
+        // 更新笔记关联
         scheduleNoteMapper.deleteByScheduleId(dto.getId());
         if (dto.getNoteIds() != null && !dto.getNoteIds().isEmpty()) {
             for (Long noteId : dto.getNoteIds()) {
@@ -196,17 +228,17 @@ public class ScheduleService {
     public ScheduleDetailVO getDetailById(Long id) {
         Schedule schedule = scheduleMapper.findById(id);
         if (schedule == null) {
-            return null;
+            throw new IllegalArgumentException("日程不存在");
         }
 
         ScheduleDetailVO vo = new ScheduleDetailVO();
         BeanUtils.copyProperties(schedule, vo);
 
-        // 查询关联的标签ID（单个）
+        // 查询关联的标签ID
         NoteTag noteTag = noteTagMapper.selectByTarget(id, "SCHEDULE");
         vo.setTagId(noteTag != null ? noteTag.getTagId() : null);
 
-        // 查询关联的笔记ID（多个）
+        // 查询关联的笔记ID
         List<Long> noteIds = scheduleNoteMapper.findNoteIdsByScheduleId(id);
         vo.setNoteIds(noteIds != null ? noteIds : List.of());
 
@@ -219,11 +251,11 @@ public class ScheduleService {
             return;
         }
         for (Long id : ids) {
-            // 1. 删除日程关联的标签
+            // 删除日程关联的标签
             noteTagMapper.deleteByTarget(id, "SCHEDULE");
-            // 2. 删除日程关联的笔记
+            // 删除日程关联的笔记
             scheduleNoteMapper.deleteByScheduleId(id);
-            // 3. 删除日程（软删除或硬删除）
+            // 删除日程
             scheduleMapper.deleteById(id);
         }
     }

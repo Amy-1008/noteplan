@@ -326,7 +326,6 @@
 
 <script setup>
 import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
-
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Delete, Document, Search } from '@element-plus/icons-vue'
 import axios from 'axios'
@@ -334,16 +333,21 @@ import TagSelector from "@/components/TagSelector.vue"
 import { useRouter } from 'vue-router'
 import { useNoteStore } from '@/store/note'
 
+// 初始化
 const store = useNoteStore()
 const router = useRouter()
 const formRef = ref(null)
 const saving = ref(false)
 const isAdding = ref(false)
+
+// 获取当前时间+1小时
 const getOneHourLater = () => {
   const date = new Date()
   date.setHours(date.getHours() + 1)
   return date
 }
+
+// 当前日期
 const currentDate = new Date().toLocaleDateString('zh-CN', {
   year: 'numeric',
   month: 'long',
@@ -351,6 +355,7 @@ const currentDate = new Date().toLocaleDateString('zh-CN', {
   weekday: 'long'
 })
 
+// 表单数据
 const formData = ref({
   title: '',
   timeType: 'point',
@@ -362,6 +367,7 @@ const formData = ref({
   noteIds: []
 })
 
+// 表单校验规则
 const formRules = {
   title: [
     { required: true, message: '请输入日程标题', trigger: 'blur' },
@@ -373,6 +379,7 @@ const formRules = {
     message: '请选择开始时间',
     trigger: 'change',
     validator: (rule, value, callback) => {
+      // 时间段模式，校验开始时间
       if (formData.value.timeType === 'period' && !value) {
         callback(new Error('请选择开始时间'))
       } else {
@@ -380,11 +387,10 @@ const formRules = {
       }
     }
   }],
-  remark: [
-    { max: 800, message: '备注不能超过800个字符', trigger: 'blur' }
-  ]
+  remark: [{ max: 800, message: '备注不能超过800个字符', trigger: 'blur' }]
 }
 
+// 分页
 const currentPageMap = ref({
   expired: 1,
   nextWeek: 1,
@@ -392,6 +398,7 @@ const currentPageMap = ref({
   completed: 1
 })
 
+// 每页条数
 const pageSizeMap = ref({
   expired: 5,
   nextWeek: 5,
@@ -399,7 +406,7 @@ const pageSizeMap = ref({
   completed: 5
 })
 
-// 辅助函数
+// 工具函数
 const formatDateTime = (date) => {
   if (!date) return ''
   const d = new Date(date)
@@ -412,6 +419,7 @@ const formatDateTime = (date) => {
   return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`
 }
 
+// 格式化日程显示时间
 const formatScheduleTime = (schedule) => {
   if (!schedule.endTime) return ''
 
@@ -423,10 +431,10 @@ const formatScheduleTime = (schedule) => {
   if (!schedule.startTime) {
     return formatTime(schedule.endTime)
   }
-
   return `${formatTime(schedule.startTime)} ~ ${formatTime(schedule.endTime)}`
 }
 
+// 获取完整日期时间
 const getFullDateTime = (schedule) => {
   if (!schedule.endTime) return ''
 
@@ -441,11 +449,14 @@ const getFullDateTime = (schedule) => {
   return `${formatFull(schedule.startTime)} ~ ${formatFull(schedule.endTime)}`
 }
 
+// 日程分组逻辑
+// 是否已过期
 const isExpired = (schedule) => {
   if (schedule.completed) return false
   return new Date(schedule.endTime) < new Date()
 }
 
+// 接下来7天
 const isNextWeek = (schedule) => {
   if (schedule.completed) return false
   const now = new Date()
@@ -454,7 +465,6 @@ const isNextWeek = (schedule) => {
   return diffDays >= 0 && diffDays <= 7
 }
 
-// 分组列表
 const expiredList = computed(() => {
   const list = store.scheduleList || []
   return list.filter(s => !s.completed && isExpired(s))
@@ -491,6 +501,7 @@ const paginatedGroups = computed(() => {
 
 const noData = computed(() => (store.scheduleList || []).length === 0)
 
+// 标签相关
 const getTagName = (tagId) => {
   if (!tagId) return null
   const tag = store.tags.find(t => t.id === tagId)
@@ -513,25 +524,24 @@ const getTagColor = (tag) => {
   return colors[tag] || '#9ca3af'
 }
 
-// 笔记选择器相关
-const selectedNotes = ref([])
-const noteSearchKeyword = ref('')
-const noteFilterTagId = ref(null)
-const noteDialogVisible = ref(false)
-const tempSelectedNoteIds = ref([])
-const viewNoteDialogVisible = ref(false)
-const currentViewNote = ref(null)
-const tagList = ref([])
-const noteList = ref([])
+// 笔记选择器
+const selectedNotes = ref([])           // 已选中的笔记列表
+const noteSearchKeyword = ref('')       // 搜索关键词
+const noteFilterTagId = ref(null)       // 按标签筛选
+const noteDialogVisible = ref(false)    // 弹窗是否显示
+const tempSelectedNoteIds = ref([])     // 临时选中的笔记ID（确定后才保存）
+const viewNoteDialogVisible = ref(false)// 笔记详情弹窗
+const currentViewNote = ref(null)       // 当前查看的笔记
+const tagList = ref([])                 // 所有标签列表
+const noteList = ref([])                // 所有笔记列表
 
+// 过滤笔记列表
 const filteredNoteList = computed(() => {
   let result = [...noteList.value]
 
   if (noteSearchKeyword.value.trim()) {
     const keyword = noteSearchKeyword.value.trim().toLowerCase()
-    result = result.filter(note =>
-        note.title?.toLowerCase().includes(keyword)
-    )
+    result = result.filter(note => note.title?.toLowerCase().includes(keyword))
   }
 
   if (noteFilterTagId.value) {
@@ -541,23 +551,36 @@ const filteredNoteList = computed(() => {
   return result
 })
 
+// 切换笔记选中状态
 const toggleNoteSelection = (noteId) => {
   const index = tempSelectedNoteIds.value.indexOf(noteId)
   if (index > -1) {
     tempSelectedNoteIds.value.splice(index, 1)
   } else {
+    // 最多关联5篇笔记
+    if (tempSelectedNoteIds.value.length >= 5) {
+      ElMessage.warning('每个日程最多只能关联5篇笔记');
+      return;
+    }
     tempSelectedNoteIds.value.push(noteId)
   }
 }
 
 const openNoteSelector = () => {
-  tempSelectedNoteIds.value = [...formData.value.noteIds]
+  tempSelectedNoteIds.value = [...formData.value.noteIds]  // 复制当前已选中的
   noteSearchKeyword.value = ''
   noteFilterTagId.value = null
+  if (tempSelectedNoteIds.value.length >= 5) {
+    ElMessage.info(`当前已选择 ${tempSelectedNoteIds.value.length} 篇笔记，最多可选5篇`);
+  }
   noteDialogVisible.value = true
 }
 
 const confirmNoteSelection = () => {
+  if (tempSelectedNoteIds.value.length > 5) {
+    ElMessage.warning('每个日程最多只能关联5篇笔记');
+    return;
+  }
   selectedNotes.value = noteList.value.filter(n => tempSelectedNoteIds.value.includes(n.id))
   formData.value.noteIds = tempSelectedNoteIds.value
   noteDialogVisible.value = false
@@ -579,14 +602,14 @@ const formatDate = (dateStr) => {
   return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`
 }
 
-// 事件
+// 日程
+// 切换完成状态
 const toggleComplete = async (schedule, event) => {
   if (event) event.stopPropagation()
   if (deleteMode.value) return
 
   const originalCompleted = schedule.completed
   const newCompleted = originalCompleted ? 0 : 1
-
   schedule.completed = newCompleted
 
   try {
@@ -612,12 +635,11 @@ const goToDetail = (id) => {
   router.push({ path: '/schedule/detail', query: { id } })
 }
 
+// 分页切换
 const handlePageChange = (group, page) => {
-  console.log('handlePageChange:', group, page, 'currentPage:', currentPageMap.value[group])
   if (page < 1) return
   let totalCount = 0
   let pageSize = 0
-
   switch(group) {
     case 'expired':
       totalCount = expiredList.value.length
@@ -635,23 +657,22 @@ const handlePageChange = (group, page) => {
       totalCount = completedList.value.length
       pageSize = pageSizeMap.value.completed
       break
-    default:
-      return
+    default: return
   }
-
   const maxPage = Math.ceil(totalCount / pageSize) || 1
   if (page > maxPage) return
   currentPageMap.value[group] = page
 }
 
+// 每页条数变化
 const handlePageSizeChange = (group, size) => {
-  console.log('handlePageSizeChange:', group, size)
   const newSize = parseInt(size)
   if (isNaN(newSize) || newSize <= 0) return
   pageSizeMap.value[group] = newSize
   currentPageMap.value[group] = 1
 }
 
+// 重复规则校验
 // 校验并调整重复规则的时间
 const validateAndAdjustRepeatTime = (repeatRule, time) => {
   if (!time || repeatRule === 'none') return time
@@ -660,13 +681,13 @@ const validateAndAdjustRepeatTime = (repeatRule, time) => {
   let adjusted = false
 
   if (repeatRule === 'workday') {
-    // 工作日：周一到周五（getDay(): 0=周日, 6=周六）
+    // 工作日
     while (newDate.getDay() === 0 || newDate.getDay() === 6) {
       newDate.setDate(newDate.getDate() + 1)
       adjusted = true
     }
   } else if (repeatRule === 'holiday') {
-    // 节假日：周六或周日
+    // 节假日
     while (newDate.getDay() !== 0 && newDate.getDay() !== 6) {
       newDate.setDate(newDate.getDate() + 1)
       adjusted = true
@@ -676,20 +697,19 @@ const validateAndAdjustRepeatTime = (repeatRule, time) => {
   if (adjusted) {
     ElMessage.warning(`时间已自动调整为最近的${repeatRule === 'workday' ? '工作日' : '节假日'}：${newDate.toLocaleString()}`)
   }
-
   return formatDateTime(newDate)
 }
 
+// 获取默认时间
 const getDefaultTime = () => {
   return formatDateTime(getOneHourLater())
 }
 
+//时间选择器事件
+// 时间点模式
 const handleEndTimeChange = (val) => {
   if (val && formData.value.timeType === 'point') {
-    const now = new Date()
-    const selectedDate = new Date(val)
-    selectedDate.setHours(now.getHours() + 1, now.getMinutes(), now.getSeconds())
-    formData.value.endTime = formatDateTime(selectedDate)
+    formData.value.endTime = formatDateTime(new Date(val))
   }
 }
 
@@ -699,6 +719,7 @@ const handleStartTimeChange = (val) => {
     let end = formData.value.endTime ? new Date(formData.value.endTime) : null
 
     if (!end) {
+      // 没有结束时间：自动设为开始时间+1小时
       const autoEnd = new Date(start.getTime() + 60 * 60 * 1000)
       formData.value.endTime = formatDateTime(autoEnd)
       formData.value.startTime = formatDateTime(start)
@@ -708,6 +729,7 @@ const handleStartTimeChange = (val) => {
 
     formData.value.startTime = formatDateTime(start)
 
+    // 结束时间不能早于开始时间
     if (end <= start) {
       const autoEnd = new Date(start.getTime() + 60 * 60 * 1000)
       formData.value.endTime = formatDateTime(autoEnd)
@@ -739,11 +761,14 @@ const handleEndTimeChangeForPeriod = (val) => {
   }
 }
 
+// 表单操作
+// 时间类型切换
 watch(() => formData.value.timeType, (newVal) => {
-
   if (newVal === 'point') {
+    // 切换到时间点模式：清空开始时间
     formData.value.startTime = ''
   } else {
+    // 切换到时间段模式
     if (!formData.value.startTime && !formData.value.endTime) {
       const defaultStart = new Date()
       const defaultEnd = new Date(defaultStart.getTime() + 60 * 60 * 1000)
@@ -758,6 +783,7 @@ watch(() => formData.value.timeType, (newVal) => {
   }
 })
 
+// 切换新建表单显示/隐藏
 const toggleAddForm = () => {
   if (isAdding.value) {
     isAdding.value = false
@@ -779,6 +805,7 @@ const toggleAddForm = () => {
   }
 }
 
+// 重置表单
 const resetForm = () => {
   formData.value = {
     title: '',
@@ -794,6 +821,7 @@ const resetForm = () => {
   formRef.value?.clearValidate()
 }
 
+// 提交新建日程
 const submitSchedule = async () => {
   if (!formRef.value) return
 
@@ -852,6 +880,7 @@ const handleTagCreated = (newTag) => {
 }
 
 // API
+// 获取所有标签
 const fetchTagList = async () => {
   try {
     const response = await axios.get('http://localhost:8080/api/tags')
@@ -863,6 +892,7 @@ const fetchTagList = async () => {
   }
 }
 
+// 获取所有笔记
 const fetchNoteList = async () => {
   try {
     const response = await axios.get('http://localhost:8080/api/note/list')
@@ -884,12 +914,14 @@ const fetchNoteList = async () => {
   }
 }
 
+// 获取所有日程
 const fetchScheduleList = async () => {
   try {
     const response = await axios.get('http://localhost:8080/api/schedule/list')
     const data = response.data.data || []
     store.fullScheduleList = data
     store.scheduleList = data
+    // 重置所有分页到第一页
     currentPageMap.value = {
       expired: 1,
       nextWeek: 1,
@@ -912,11 +944,13 @@ const toggleDeleteMode = () => {
   }
 }
 
+// 取消批量删除
 const cancelDelete = () => {
   deleteMode.value = false
   selectedIds.value = []
 }
 
+// 选中/取消选中单个日程
 const toggleSelect = (id) => {
   const index = selectedIds.value.indexOf(id)
   if (index > -1) {
@@ -926,6 +960,7 @@ const toggleSelect = (id) => {
   }
 }
 
+// 批量删除
 const batchDelete = async () => {
   if (selectedIds.value.length === 0) {
     ElMessage.warning('请选择要删除的日程')
@@ -974,6 +1009,7 @@ onMounted(() => {
   // 监听筛选事件
   window.addEventListener('schedule-filtered', (event) => {
     store.scheduleList = event.detail
+    // 重置分页
     currentPageMap.value = {
       expired: 1,
       nextWeek: 1,
