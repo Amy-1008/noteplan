@@ -92,7 +92,7 @@
             </el-form-item>
 
             <el-form-item label="备注">
-              <el-input v-model="formData.remark" type="textarea" :rows="3" placeholder="请输入备注" />
+              <el-input v-model="formData.remark" type="textarea" :rows="3" placeholder="请输入备注" maxlength="800" show-word-limit/>
             </el-form-item>
 
             <el-form-item label="标签">
@@ -399,7 +399,7 @@ const pageSizeMap = ref({
   completed: 5
 })
 
-// ---------- 辅助函数 ----------
+// 辅助函数
 const formatDateTime = (date) => {
   if (!date) return ''
   const d = new Date(date)
@@ -513,7 +513,7 @@ const getTagColor = (tag) => {
   return colors[tag] || '#9ca3af'
 }
 
-// ---------- 笔记选择器相关 ----------
+// 笔记选择器相关
 const selectedNotes = ref([])
 const noteSearchKeyword = ref('')
 const noteFilterTagId = ref(null)
@@ -579,7 +579,7 @@ const formatDate = (dateStr) => {
   return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`
 }
 
-// ---------- 事件 ----------
+// 事件
 const toggleComplete = async (schedule, event) => {
   if (event) event.stopPropagation()
   if (deleteMode.value) return
@@ -652,13 +652,12 @@ const handlePageSizeChange = (group, size) => {
   currentPageMap.value[group] = 1
 }
 
-// 校验并调整重复规则的时间（工作日/节假日）
+// 校验并调整重复规则的时间
 const validateAndAdjustRepeatTime = (repeatRule, time) => {
   if (!time || repeatRule === 'none') return time
 
   let newDate = new Date(time)
   let adjusted = false
-  let originalDate = new Date(time)
 
   if (repeatRule === 'workday') {
     // 工作日：周一到周五（getDay(): 0=周日, 6=周六）
@@ -697,9 +696,19 @@ const handleEndTimeChange = (val) => {
 const handleStartTimeChange = (val) => {
   if (val && formData.value.timeType === 'period') {
     const start = new Date(val)
-    const end = formData.value.endTime ? new Date(formData.value.endTime) : null
+    let end = formData.value.endTime ? new Date(formData.value.endTime) : null
 
-    if (!end || end <= start) {
+    if (!end) {
+      const autoEnd = new Date(start.getTime() + 60 * 60 * 1000)
+      formData.value.endTime = formatDateTime(autoEnd)
+      formData.value.startTime = formatDateTime(start)
+      ElMessage.info('结束时间已自动设置为开始时间后1小时')
+      return
+    }
+
+    formData.value.startTime = formatDateTime(start)
+
+    if (end <= start) {
       const autoEnd = new Date(start.getTime() + 60 * 60 * 1000)
       formData.value.endTime = formatDateTime(autoEnd)
       ElMessage.info('结束时间已自动调整为开始时间后1小时')
@@ -710,28 +719,42 @@ const handleStartTimeChange = (val) => {
 const handleEndTimeChangeForPeriod = (val) => {
   if (val && formData.value.timeType === 'period') {
     const end = new Date(val)
-    const start = formData.value.startTime ? new Date(formData.value.startTime) : null
+    let start = formData.value.startTime ? new Date(formData.value.startTime) : null
 
-    if (start && end <= start) {
-      const autoEnd = new Date(start.getTime() + 60 * 60 * 1000)
-      formData.value.endTime = formatDateTime(autoEnd)
-      ElMessage.warning('结束时间不能早于或等于开始时间，已自动调整为开始时间后1小时')
+    if (!start) {
+      const autoStart = new Date(end.getTime() - 60 * 60 * 1000)
+      formData.value.startTime = formatDateTime(autoStart)
+      formData.value.endTime = formatDateTime(end)
+      ElMessage.info('开始时间已自动设置为结束时间前1小时')
+      return
+    }
+
+    formData.value.endTime = formatDateTime(end)
+
+    if (end <= start) {
+      const autoStart = new Date(end.getTime() - 60 * 60 * 1000)
+      formData.value.startTime = formatDateTime(autoStart)
+      ElMessage.info('开始时间已自动调整为结束时间前1小时')
     }
   }
 }
 
 watch(() => formData.value.timeType, (newVal) => {
-  const defaultTime = getDefaultTime()
 
   if (newVal === 'point') {
     formData.value.startTime = ''
-    formData.value.endTime = defaultTime
   } else {
-    const defaultStart = new Date()
-    const defaultEnd = new Date(defaultStart.getTime() + 60 * 60 * 1000)
-    formData.value.startTime = formatDateTime(defaultStart)
-    formData.value.endTime = formatDateTime(defaultEnd)
-    ElMessage.info('已自动将结束时间设置为开始后一小时')
+    if (!formData.value.startTime && !formData.value.endTime) {
+      const defaultStart = new Date()
+      const defaultEnd = new Date(defaultStart.getTime() + 60 * 60 * 1000)
+      formData.value.startTime = formatDateTime(defaultStart)
+      formData.value.endTime = formatDateTime(defaultEnd)
+    }
+    else if (formData.value.endTime && !formData.value.startTime) {
+      const endDate = new Date(formData.value.endTime)
+      const autoStart = new Date(endDate.getTime() - 60 * 60 * 1000)
+      formData.value.startTime = formatDateTime(autoStart)
+    }
   }
 })
 
@@ -828,7 +851,7 @@ const handleTagCreated = (newTag) => {
   fetchTagList()
 }
 
-// ---------- API ----------
+// API
 const fetchTagList = async () => {
   try {
     const response = await axios.get('http://localhost:8080/api/tags')
@@ -865,7 +888,7 @@ const fetchScheduleList = async () => {
   try {
     const response = await axios.get('http://localhost:8080/api/schedule/list')
     const data = response.data.data || []
-    store.fullScheduleList = data  // ✅ 保存完整列表
+    store.fullScheduleList = data
     store.scheduleList = data
     currentPageMap.value = {
       expired: 1,
@@ -878,7 +901,7 @@ const fetchScheduleList = async () => {
     ElMessage.error('获取日程失败')
   }
 }
-// ---------- 批量删除相关 ----------
+// 批量删除相关
 const deleteMode = ref(false)
 const selectedIds = ref([])
 
@@ -941,7 +964,7 @@ const batchDelete = async () => {
   }
 }
 
-// 监听窗口事件，响应 Sidebar 的筛选
+// 监听窗口事件
 onMounted(() => {
   // 加载初始数据
   fetchTagList()
@@ -1143,51 +1166,6 @@ onUnmounted(() => {
   padding: 24px;
 }
 
-.title-input {
-  width: 100%;
-  font-size: 24px;
-  font-weight: 600;
-  color: var(--text-primary);
-  border: none;
-  outline: none;
-  padding: 0 0 12px 0;
-  background: transparent;
-  border-bottom: 1px solid var(--card-border);
-  margin-bottom: 20px;
-}
-
-.title-input::placeholder {
-  color: var(--text-secondary);
-}
-
-.title-input:focus {
-  border-bottom-color: var(--accent);
-}
-
-.remark-input {
-  width: 100%;
-  font-size: 16px;
-  line-height: 1.8;
-  color: var(--text-primary);
-  border: none;
-  outline: none;
-  padding: 0 0 12px 0;
-  background: transparent;
-  border-bottom: 1px solid var(--card-border);
-  margin-bottom: 20px;
-  resize: vertical;
-  min-height: 80px;
-  font-family: inherit;
-}
-
-.remark-input::placeholder {
-  color: var(--text-secondary);
-}
-
-.remark-input:focus {
-  border-bottom-color: var(--accent);
-}
-
 /* 日程分组 */
 .schedule-group {
   background: var(--card-bg);
@@ -1200,9 +1178,24 @@ onUnmounted(() => {
 .group-title {
   font-size: 16px;
   font-weight: 600;
-  color: var(--text-secondary);
   padding: 12px 16px;
   border-bottom: 1px solid var(--card-border);
+}
+
+.expired-title {
+  color: #ef4444 !important;
+}
+
+.next-week-title {
+  color: #10b981 !important;
+}
+
+.other-title {
+  color: #f59e0b !important;
+}
+
+.completed-title {
+  color: #6b7280 !important;
 }
 
 .schedule-list {
@@ -1232,6 +1225,13 @@ onUnmounted(() => {
   gap: 12px;
   flex: 1;
   min-width: 0;
+}
+
+.checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
 .schedule-content {
@@ -1265,6 +1265,32 @@ onUnmounted(() => {
   color: var(--text-secondary);
 }
 
+.schedule-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 标签显示 */
+.tag-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--tag-bg);
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  color: var(--tag-text);
+}
+
+.tag-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* 分页样式 */
 .group-pagination {
   display: flex;
   justify-content: space-between;
@@ -1272,6 +1298,35 @@ onUnmounted(() => {
   padding: 12px 16px;
   background: var(--bg-hover);
   border-top: 1px solid var(--card-border);
+}
+
+.pagination-size {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.page-size-select {
+  padding: 4px 8px;
+  background: var(--bg-hover);
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.page-size-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .page-info {
@@ -1309,45 +1364,138 @@ onUnmounted(() => {
   color: var(--empty-text);
 }
 
-.tag-display {
-  display: inline-flex;
+/* 笔记选择器弹窗样式 - 横排胶囊布局 */
+.note-selector {
+  padding: 8px 0;
+}
+
+.note-search-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--card-border);
+}
+
+.note-list-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.note-item-selector {
+  display: flex;
   align-items: center;
-  gap: 4px;
-  background: var(--tag-bg);
-  padding: 2px 10px;
-  border-radius: 12px;
-  font-size: 12px;
-  color: var(--tag-text);
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: var(--bg-hover);
+  border-radius: 32px;
+  transition: all 0.2s;
+  cursor: pointer;
+  border: 1px solid var(--card-border);
 }
 
-.tag-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  display: inline-block;
+.note-item-selector:hover {
+  background: var(--border-color);
+  transform: translateX(2px);
 }
 
-.pagination-size {
+.note-item-selector .el-checkbox {
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.note-info {
+  flex: 1;
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
-  color: var(--text-secondary);
+  flex-wrap: wrap;
 }
 
-.page-size-select {
-  padding: 4px 8px;
-  background: var(--bg-hover);
-  border: 1px solid var(--card-border);
-  border-radius: 6px;
+.note-title {
+  font-size: 14px;
+  font-weight: 500;
   color: var(--text-primary);
-  font-size: 13px;
-  cursor: pointer;
 }
 
-.pagination-controls {
+.note-tag-name {
+  font-size: 11px;
+  padding: 2px 8px;
+  background: #e0e7ff;
+  color: #4338ca;
+  border-radius: 12px;
+}
+
+.note-item-selector .el-button {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  transition: 0.2s;
+  padding: 4px 8px;
+  border-radius: 20px;
+  flex-shrink: 0;
+}
+
+.note-item-selector .el-button:hover {
+  background: var(--card-bg);
+  color: var(--accent);
+}
+
+/* 笔记详情弹窗 */
+.note-view-content {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.note-view-meta {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.note-view-body {
+  white-space: pre-wrap;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+/* 已选笔记列表 */
+.selected-notes-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.selected-notes-list .el-tag {
+  background: #10b981;
+  border-color: #10b981;
+  color: white;
+}
+
+.selected-notes-list .el-tag .el-icon {
+  color: white;
+}
+
+.selected-notes-list .el-tag:hover {
+  background: #059669;
+  border-color: #059669;
+}
+
+/* 笔记选择器内的空状态 */
+.note-list-selector .el-empty {
+  padding: 20px;
+}
+
+/* 时间选择器样式 */
+.time-picker .el-date-editor {
+  --el-date-editor-width: 100%;
 }
 </style>

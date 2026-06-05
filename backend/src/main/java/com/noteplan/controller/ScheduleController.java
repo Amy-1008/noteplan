@@ -22,7 +22,7 @@ public class ScheduleController {
     @Autowired
     private ScheduleService scheduleService;
 
-    // 获取日程列表（支持 ids 参数筛选）
+    // 获取日程列表
     @GetMapping("/list")
     public Result<List<Schedule>> list(@RequestParam(required = false) String ids) {
         List<Schedule> list;

@@ -69,8 +69,8 @@ public interface CalendarMapper {
             "LEFT JOIN tag t ON nt.tag_id = t.id " +
             "WHERE s.status = 0 " +
             "AND ( " +
-            "  (s.start_time IS NOT NULL AND DATE(s.start_time) = #{date}) " +
-            "  OR DATE(s.end_time) = #{date} " +
+            "  (s.start_time IS NULL AND DATE(s.end_time) = #{date}) " +
+            "  OR (s.start_time IS NOT NULL AND #{date} BETWEEN DATE(s.start_time) AND DATE(s.end_time)) " +
             ") " +
             "GROUP BY s.id, s.title, s.start_time, s.end_time, s.remark, s.completed " +
             "ORDER BY s.end_time")

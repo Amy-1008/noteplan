@@ -70,14 +70,17 @@
             <span v-if="day.isToday" class="today-badge-mark">今天</span>
           </div>
           <div class="day-events">
-            <template v-for="(event, idx) in day.events.slice(0, 2)" :key="event.id">
-              <div class="event-item" :class="event.type">
-                <span class="event-dot" :class="event.type"></span>
-                <span class="event-title">{{ truncateTitle(event.title, 5) }}</span>
-              </div>
-            </template>
-            <div v-if="day.events.length > 2" class="more-events">
-              +{{ day.events.length - 2 }}
+            <div
+                v-for="(event, idx) in getUniqueEvents(day.events).slice(0, 2)"
+                :key="idx"
+                class="event-item"
+                :class="event.type"
+            >
+              <span class="event-dot" :class="event.type"></span>
+              <span class="event-title">{{ truncateTitle(event.title, 5) }}</span>
+            </div>
+            <div v-if="getUniqueEvents(day.events).length > 2" class="more-events">
+              +{{ getUniqueEvents(day.events).length - 2 }}
             </div>
           </div>
         </div>
@@ -100,14 +103,17 @@
             <span v-if="day.isToday" class="today-badge-mark">今天</span>
           </div>
           <div class="day-events">
-            <template v-for="(event, idx) in day.events.slice(0, 2)" :key="event.id">
-              <div class="event-item" :class="event.type">
-                <span class="event-dot" :class="event.type"></span>
-                <span class="event-title">{{ truncateTitle(event.title, 5) }}</span>
-              </div>
-            </template>
-            <div v-if="day.events.length > 2" class="more-events">
-              +{{ day.events.length - 2 }}
+            <div
+                v-for="(event, idx) in getUniqueEvents(day.events).slice(0, 2)"
+                :key="idx"
+                class="event-item"
+                :class="event.type"
+            >
+              <span class="event-dot" :class="event.type"></span>
+              <span class="event-title">{{ truncateTitle(event.title, 5) }}</span>
+            </div>
+            <div v-if="getUniqueEvents(day.events).length > 2" class="more-events">
+              +{{ getUniqueEvents(day.events).length - 2 }}
             </div>
           </div>
         </div>
@@ -256,8 +262,17 @@ const loadMonthData = async () => {
     allSchedules.forEach(schedule => {
       if (schedule.repeatRule && schedule.repeatRule !== 'none') {
         const recurringEvents = generateRecurringEvents(schedule, startDate, endDate);
+        // 按日期去重
+        const eventMap = new Map();
         recurringEvents.forEach(event => {
           const dateKey = event.date || dayjs(event.time.split(' - ')[0], 'HH:mm').format('YYYY-MM-DD');
+          const uniqueKey = `${dateKey}-${event.title}`;
+          if (!eventMap.has(uniqueKey)) {
+            eventMap.set(uniqueKey, { ...event, date: dateKey });
+          }
+        });
+        // 添加去重后的事件
+        eventMap.forEach((event, dateKey) => {
           if (!events[dateKey]) events[dateKey] = [];
           events[dateKey].push(event);
         });
@@ -421,6 +436,17 @@ const today = () => {
       events: events
     };
   }
+};
+
+const getUniqueEvents = (events) => {
+  if (!Array.isArray(events)) return [];
+  const seen = new Set();
+  return events.filter(event => {
+    const key = `${event.title}-${event.time || ''}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 };
 
 onMounted(() => {

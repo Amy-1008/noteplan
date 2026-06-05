@@ -14,25 +14,9 @@
 
       <!-- 笔记本主体 -->
       <div class="notebook">
-        <!-- 左侧：日期栏 -->
-        <div class="date-column">
-          <div class="date-display">
-            <span class="date-year">{{ currentYear }}</span>
-            <span class="date-month">{{ currentMonth }}</span>
-            <span class="date-number">{{ currentDay }}</span>
-            <span class="date-weekday">{{ currentWeekday }}</span>
-          </div>
-        </div>
-
-        <!-- 右侧：内容区域 -->
         <div class="content-column">
           <div class="content-header">
-            <input
-                v-model="formData.title"
-                type="text"
-                class="title-input"
-                placeholder="标题"
-            />
+            <el-input v-model="formData.title" class="title-input" placeholder="标题" maxlength="20" show-word-limit/>
           </div>
 
           <div class="time-section">
@@ -90,12 +74,7 @@
 
           <div class="remark-section">
             <span class="label">备注</span>
-            <textarea
-                v-model="formData.remark"
-                class="remark-input"
-                placeholder="备注"
-                rows="4"
-            ></textarea>
+            <el-input v-model="formData.remark" type="textarea" class="remark-input" placeholder="备注" rows="4" maxlength="800" show-word-limit/>
           </div>
 
           <div class="tag-section">
@@ -189,10 +168,6 @@ const isEdit = computed(() => !!scheduleId.value)
 
 // 当前日期
 const now = new Date()
-const currentDay = now.getDate()
-const currentMonth = (now.getMonth() + 1) + '月'
-const currentYear = now.getFullYear()
-const currentWeekday = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'][now.getDay()]
 
 // 表单数据
 const formData = ref({
@@ -207,31 +182,7 @@ const formData = ref({
   noteIds: []
 })
 
-// 表单校验规则（与新增一致）
-const formRules = {
-  title: [
-    { required: true, message: '请输入日程标题', trigger: 'blur' },
-    { max: 20, message: '标题不能超过20个字符', trigger: 'blur' }
-  ],
-  endTime: [{ required: true, message: '请选择时间', trigger: 'change' }],
-  startTime: [{
-    required: true,
-    message: '请选择开始时间',
-    trigger: 'change',
-    validator: (rule, value, callback) => {
-      if (formData.value.timeType === 'period' && !value) {
-        callback(new Error('请选择开始时间'))
-      } else {
-        callback()
-      }
-    }
-  }],
-  remark: [
-    { max: 800, message: '备注不能超过800个字符', trigger: 'blur' }
-  ]
-}
-
-// ---------- 时间辅助函数 ----------
+// 时间辅助函数
 const getOneHourLater = () => {
   const date = new Date()
   date.setHours(date.getHours() + 1)
@@ -250,10 +201,6 @@ const formatDateTime = (date) => {
   return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`
 }
 
-const getDefaultTime = () => {
-  return formatDateTime(getOneHourLater())
-}
-
 const handleEndTimeChange = (val) => {
   if (val && formData.value.timeType === 'point') {
     formData.value.endTime = formatDateTime(new Date(val))
@@ -263,13 +210,19 @@ const handleEndTimeChange = (val) => {
 const handleStartTimeChange = (val) => {
   if (val && formData.value.timeType === 'period') {
     const start = new Date(val)
-    const end = formData.value.endTime ? new Date(formData.value.endTime) : null
+    let end = formData.value.endTime ? new Date(formData.value.endTime) : null
 
-    // 赋值
+    if (!end) {
+      const autoEnd = new Date(start.getTime() + 60 * 60 * 1000)
+      formData.value.endTime = formatDateTime(autoEnd)
+      formData.value.startTime = formatDateTime(start)
+      ElMessage.info('结束时间已自动设置为开始时间后1小时')
+      return
+    }
+
     formData.value.startTime = formatDateTime(start)
 
-    // 如果有结束时间且结束时间 <= 开始时间，自动调整结束时间
-    if (end && end <= start) {
+    if (end <= start) {
       const autoEnd = new Date(start.getTime() + 60 * 60 * 1000)
       formData.value.endTime = formatDateTime(autoEnd)
       ElMessage.info('结束时间已自动调整为开始时间后1小时')
@@ -280,21 +233,26 @@ const handleStartTimeChange = (val) => {
 const handleEndTimeChangeForPeriod = (val) => {
   if (val && formData.value.timeType === 'period') {
     const end = new Date(val)
-    const start = formData.value.startTime ? new Date(formData.value.startTime) : null
+    let start = formData.value.startTime ? new Date(formData.value.startTime) : null
 
-    // 赋值
+    if (!start) {
+      const autoStart = new Date(end.getTime() - 60 * 60 * 1000)
+      formData.value.startTime = formatDateTime(autoStart)
+      formData.value.endTime = formatDateTime(end)
+      ElMessage.info('开始时间已自动设置为结束时间前1小时')
+      return
+    }
+
     formData.value.endTime = formatDateTime(end)
 
-    // 如果有开始时间且结束时间 <= 开始时间，自动调整结束时间
-    if (start && end <= start) {
-      const autoEnd = new Date(start.getTime() + 60 * 60 * 1000)
-      formData.value.endTime = formatDateTime(autoEnd)
-      ElMessage.warning('结束时间不能早于或等于开始时间，已自动调整为开始时间后1小时')
+    if (end <= start) {
+      const autoStart = new Date(end.getTime() - 60 * 60 * 1000)
+      formData.value.startTime = formatDateTime(autoStart)
+      ElMessage.info('开始时间已自动调整为结束时间前1小时')
     }
   }
 }
-
-// ---------- 笔记选择器相关 ----------
+// 笔记选择器相关
 const selectedNotes = ref([])
 const noteSearchKeyword = ref('')
 const noteFilterTagId = ref(null)
@@ -360,7 +318,7 @@ const formatDate = (dateStr) => {
   return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`
 }
 
-// ---------- API ----------
+// API
 const fetchTagList = async () => {
   try {
     const response = await axios.get('http://localhost:8080/api/tags')
@@ -418,7 +376,7 @@ const fetchScheduleDetail = async () => {
         formData.value.noteIds = data.noteIds
       }
 
-      // 先设置时间类型
+      // 设置时间类型
       if (!data.startTime) {
         formData.value.timeType = 'point'
         formData.value.endTime = data.endTime
@@ -472,37 +430,51 @@ const saveSchedule = async () => {
     return
   }
 
-  // 时间段模式的完整性校验（只检查，不自动调整）
-  if (formData.value.timeType === 'period') {
-    const start = formData.value.startTime ? new Date(formData.value.startTime) : null
-    const end = formData.value.endTime ? new Date(formData.value.endTime) : null
-
-    if (!start || !end) {
-      ElMessage.warning('请选择完整的时间段')
-      return
-    }
-    if (end <= start) {
-      ElMessage.warning('结束时间不能早于或等于开始时间')
-      return
-    }
-  }
-
-  if (formData.value.timeType === 'point' && !formData.value.endTime) {
-    ElMessage.warning('请选择时间')
-    return
-  }
-
   saving.value = true
   try {
+    let startTime = formData.value.startTime
+    let endTime = formData.value.endTime
+    const repeatRule = formData.value.repeatRule
+
+    // 时间段模式的完整性校验
+    if (formData.value.timeType === 'period') {
+      const start = startTime ? new Date(startTime) : null
+      const end = endTime ? new Date(endTime) : null
+
+      if (!start || !end) {
+        ElMessage.warning('请选择完整的时间段')
+        saving.value = false
+        return
+      }
+      if (end <= start) {
+        ElMessage.warning('结束时间不能早于或等于开始时间')
+        saving.value = false
+        return
+      }
+    }
+
+    if (formData.value.timeType === 'point' && !endTime) {
+      ElMessage.warning('请选择时间')
+      saving.value = false
+      return
+    }
+
+    if (formData.value.timeType === 'point' && endTime) {
+      endTime = validateAndAdjustRepeatTime(repeatRule, endTime)
+    } else if (formData.value.timeType === 'period') {
+      if (startTime) startTime = validateAndAdjustRepeatTime(repeatRule, startTime)
+      if (endTime) endTime = validateAndAdjustRepeatTime(repeatRule, endTime)
+    }
+
     const submitData = {
       id: formData.value.id,
       title: formData.value.title,
-      repeatRule: formData.value.repeatRule,
+      repeatRule: repeatRule,
       remark: formData.value.remark,
       tagId: formData.value.tagId,
       noteIds: formData.value.noteIds,
-      startTime: formData.value.timeType === 'point' ? null : formData.value.startTime,
-      endTime: formData.value.endTime
+      startTime: formData.value.timeType === 'point' ? null : (startTime || null),
+      endTime: endTime || null
     }
 
     const response = await axios.put('http://localhost:8080/api/schedule/update', submitData)
@@ -540,7 +512,7 @@ const handleTagCreated = (newTag) => {
   fetchTagList()
 }
 
-// 添加标志位，跳过初始加载时的 watch
+// 添加标志位
 const isInitializing = ref(true)
 
 watch(() => formData.value.timeType, (newVal, oldVal) => {
@@ -565,7 +537,6 @@ watch(() => formData.value.timeType, (newVal, oldVal) => {
       formData.value.startTime = formatDateTime(defaultStart)
       formData.value.endTime = formatDateTime(defaultEnd)
     }
-    // 已有完整时间，保持不变
   }
 })
 
@@ -578,145 +549,40 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.detail-container {
+.page-container {
   padding: 24px 32px;
-  max-width: 680px;
+  max-width: 900px;
   margin: 0 auto;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
 }
 
-.detail-header {
+.page-inner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 顶部导航 */
+.page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
 }
 
-.back-btn {
-  background: none;
-  border: none;
-  font-size: 14px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: 4px 12px;
-  border-radius: 6px;
-  transition: 0.2s;
-}
-
-.back-btn:hover {
-  background: var(--bg-hover);
+.page-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
   color: var(--text-primary);
 }
 
-.save-btn {
-  padding: 6px 20px;
-  background: var(--accent);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-.save-btn:hover {
-  background: #3b7adf;
-}
-
-.detail-form {
-  background: var(--card-bg);
-  border-radius: 14px;
-  padding: 24px;
-  border: 1px solid var(--card-border);
-  box-shadow: var(--card-shadow);
-  transition: background 0.3s, border-color 0.3s;
-}
-
-.form-group {
-  margin-bottom: 20px;
-}
-
-.form-group label {
-  display: block;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  margin-bottom: 8px;
-}
-
-.form-input {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--card-border);
-  border-radius: 8px;
-  font-size: 14px;
-  outline: none;
-  background: var(--input-bg);
-  color: var(--text-primary);
-  transition: background 0.3s, border-color 0.3s;
-}
-
-.form-input:focus {
-  border-color: var(--accent);
-}
-
-.form-textarea {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--card-border);
-  border-radius: 8px;
-  font-size: 14px;
-  outline: none;
-  resize: vertical;
-  min-height: 100px;
-  font-family: inherit;
-  background: var(--input-bg);
-  color: var(--text-primary);
-  transition: background 0.3s, border-color 0.3s;
-}
-
-.form-textarea:focus {
-  border-color: var(--accent);
-}
-
-.notes-display {
+.header-actions {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.notes-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.note-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: var(--tag-bg);
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 12px;
-  color: var(--tag-text);
-}
-
-.remove-tag {
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: 0 4px;
-  font-size: 14px;
-  transition: 0.2s;
-}
-
-.remove-tag:hover {
-  color: #ef4444;
-}
-
-.placeholder-text {
-  color: var(--text-secondary);
-  font-size: 13px;
+  gap: 12px;
 }
 
 .btn-cancel, .btn-confirm {
@@ -751,39 +617,69 @@ onMounted(async () => {
   cursor: not-allowed;
 }
 
-/* 笔记本风格的表单 */
+/* 笔记本主体 */
+.notebook {
+  background: var(--card-bg);
+  border-radius: 14px;
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--card-border);
+  overflow: hidden;
+  transition: background 0.3s, border-color 0.3s;
+}
+
+.content-column {
+  padding: 32px 40px;
+  display: flex;
+  flex-direction: column;
+}
+
+.content-header {
+  margin-bottom: 24px;
+}
+
 .title-input {
   width: 100%;
-  font-size: 24px;
+}
+
+.title-input :deep(.el-input__wrapper) {
+  background: transparent;
+  box-shadow: none;
+  padding: 0 0 12px 0;
+  border-bottom: 1px solid var(--card-border);
+  border-radius: 0;
+}
+
+.title-input :deep(.el-input__inner) {
+  font-size: 28px;
   font-weight: 600;
   color: var(--text-primary);
-  border: none;
-  outline: none;
-  padding: 0 0 12px 0;
-  background: transparent;
-  border-bottom: 1px solid var(--card-border);
-  margin-bottom: 20px;
+  height: auto;
+  padding: 0;
 }
 
-.title-input::placeholder {
-  color: var(--text-secondary);
+.title-input :deep(.el-input__wrapper:hover) {
+  box-shadow: none;
 }
 
-.title-input:focus {
+.title-input :deep(.el-input__wrapper.is-focus) {
+  box-shadow: none;
   border-bottom-color: var(--accent);
 }
 
+/* 表单各区域 */
 .time-section {
   display: flex;
   align-items: center;
   gap: 16px;
   margin-bottom: 20px;
+  flex-wrap: wrap;
 }
 
 .time-type {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .radio-group {
@@ -793,17 +689,20 @@ onMounted(async () => {
 
 .time-picker {
   flex: 1;
+  min-width: 280px;
 }
 
 .period-picker {
   display: flex;
   align-items: center;
   gap: 12px;
+  width: 100%;
 }
 
 .time-separator {
   color: var(--text-secondary);
   font-size: 16px;
+  flex-shrink: 0;
 }
 
 .repeat-section {
@@ -811,10 +710,12 @@ onMounted(async () => {
   align-items: center;
   gap: 16px;
   margin-bottom: 20px;
+  flex-wrap: wrap;
 }
 
 .repeat-select {
   flex: 1;
+  min-width: 200px;
 }
 
 .remark-section {
@@ -827,32 +728,22 @@ onMounted(async () => {
 .remark-input {
   flex: 1;
   width: 100%;
-  font-size: 16px;
-  line-height: 1.8;
-  color: var(--text-primary);
-  border: none;
-  outline: none;
-  padding: 0 0 12px 0;
-  background: transparent;
-  border-bottom: 1px solid var(--card-border);
-  resize: vertical;
-  min-height: 80px;
-  font-family: inherit;
 }
 
-.remark-input::placeholder {
-  color: var(--text-secondary);
-}
-
-.remark-input:focus {
-  border-bottom-color: var(--accent);
-}
-
-.tag-section, .note-section {
+.tag-section {
   display: flex;
   align-items: flex-start;
   gap: 16px;
   margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.note-section {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
 }
 
 .label {
@@ -861,33 +752,148 @@ onMounted(async () => {
   color: var(--text-secondary);
   min-width: 50px;
   padding-top: 4px;
+  flex-shrink: 0;
 }
 
-.date-column {
-  width: 200px;
-  padding-right: 24px;
-  border-right: 1px solid var(--card-border);
+/* 关联笔记按钮样式 */
+.note-section .btn-cancel {
+  padding: 4px 12px;
+  font-size: 12px;
 }
 
-.date-display {
+/* 关联笔记显示区域 */
+.notes-display {
   display: flex;
-  align-items: baseline;
+  flex-direction: column;
   gap: 8px;
-  flex-wrap: wrap;
+  flex: 1;
 }
 
-.date-month, .date-year, .date-weekday, .date-number {
-  font-size: 14px;
-  color: var(--text-secondary);
+.notes-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.note-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #e0e7ff;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  color: #1e40af;
 }
 
 .note-tag.clickable {
   cursor: pointer;
-  transition: 0.2s;
 }
 
 .note-tag.clickable:hover {
   transform: scale(1.02);
-  opacity: 0.8;
+  opacity: 0.85;
+}
+
+.remove-tag {
+  background: none;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 14px;
+  border-radius: 50%;
+}
+
+.remove-tag:hover {
+  color: #ef4444;
+}
+
+.placeholder-text {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+/* 笔记选择器弹窗样式 */
+.note-selector {
+  padding: 8px 0;
+}
+
+.note-search-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--card-border);
+  flex-wrap: wrap;
+}
+
+.note-list-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.note-item-selector {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--bg-hover);
+  border-radius: 32px;
+  cursor: pointer;
+  border: 1px solid var(--card-border);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.note-item-selector:hover {
+  background: var(--border-color);
+}
+
+.note-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.note-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.note-tag-name {
+  font-size: 11px;
+  padding: 2px 10px;
+  background: #e0e7ff;
+  color: #4338ca;
+  border-radius: 16px;
+}
+
+/* 笔记详情弹窗 */
+.note-view-content {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.note-view-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.note-view-body {
+  white-space: pre-wrap;
+  line-height: 1.6;
+  color: var(--text-primary);
 }
 </style>

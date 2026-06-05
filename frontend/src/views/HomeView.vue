@@ -12,7 +12,7 @@ const notesWithTags = ref([])
 
 // 页面标题
 const pageTitle = computed(() => {
-  if (store.activeTag === '全部') return 'All'
+  if (store.activeTag === '全部') return 'All Entries'
   return `${store.activeTag}`
 })
 

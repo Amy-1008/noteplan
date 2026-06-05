@@ -55,7 +55,7 @@ public class ScheduleService {
 
     @Transactional
     public void addSchedule(ScheduleAddDTO dto) {
-        // 1. 插入日程
+        // 插入日程
         Schedule schedule = new Schedule();
         schedule.setTitle(dto.getTitle());
         schedule.setStartTime(dto.getStartTime());
@@ -69,7 +69,7 @@ public class ScheduleService {
         scheduleMapper.insert(schedule);
         Long scheduleId = schedule.getId();
 
-        // 2. 关联标签（单选，直接处理单个 tagId）
+        // 关联标签（单选，直接处理单个 tagId）
         if (dto.getTagId() != null) {
             NoteTag noteTag = new NoteTag();
             noteTag.setTargetId(scheduleId);
@@ -78,7 +78,7 @@ public class ScheduleService {
             noteTagMapper.insert(noteTag);
         }
 
-        // 3. 关联笔记（多选）
+        // 关联笔记（多选）
         if (dto.getNoteIds() != null && !dto.getNoteIds().isEmpty()) {
             for (Long noteId : dto.getNoteIds()) {
                 scheduleNoteMapper.insert(scheduleId, noteId);
@@ -103,7 +103,7 @@ public class ScheduleService {
                     ? calculateNextTime(schedule.getStartTime(), schedule.getRepeatRule())
                     : null;
             scheduleMapper.updateTime(id, newStartTime, newEndTime);
-            // 重新将 completed 设为 0，因为新的日程需要再次完成
+            // 重新将 completed 设为 0
             scheduleMapper.updateComplete(id, 0);
         }
     }
@@ -174,7 +174,7 @@ public class ScheduleService {
         schedule.setRemark(dto.getRemark());
         scheduleMapper.update(schedule);
 
-        // 2. 更新标签关联（先删后增，确保单选）
+        // 2. 更新标签关联
         noteTagMapper.deleteByTarget(dto.getId(), "SCHEDULE");
         if (dto.getTagId() != null) {
             NoteTag noteTag = new NoteTag();
@@ -184,7 +184,7 @@ public class ScheduleService {
             noteTagMapper.insert(noteTag);
         }
 
-        // 3. 更新笔记关联（先删后增）
+        // 3. 更新笔记关联
         scheduleNoteMapper.deleteByScheduleId(dto.getId());
         if (dto.getNoteIds() != null && !dto.getNoteIds().isEmpty()) {
             for (Long noteId : dto.getNoteIds()) {

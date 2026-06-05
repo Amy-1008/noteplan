@@ -12,7 +12,7 @@ public interface ScheduleMapper {
     // 查询所有未删除的日程
     @Select("SELECT * FROM schedule WHERE status = 0 ORDER BY end_time ASC")
     List<Schedule> findAll();
-    // 根据ID列表查询日程（新增）
+    // 根据ID列表查询日程
     @Select("<script>" +
             "SELECT * FROM schedule WHERE status = 0 AND id IN " +
             "<foreach item='id' collection='ids' open='(' separator=',' close=')'>" +
